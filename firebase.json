@@ -1,0 +1,33 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "zuber-backend",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/socket.io/**",
+        "run": {
+          "serviceId": "zuber-backend",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "zuber-frontend",
+          "region": "europe-west1"
+        }
+      }
+    ]
+  }
+}
