@@ -8,13 +8,12 @@ export function getSocket() {
   let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://127.0.0.1:8000";
   const socketPath = process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io";
 
-  // If socketUrl is relative (e.g., "/socket.io"), use appUrl as origin and pass path
   let urlForClient = socketUrl;
   let pathForClient = socketPath;
 
   if (socketUrl.startsWith("/")) {
     urlForClient = appUrl.replace("localhost", "127.0.0.1");
-    pathForClient = socketUrl; // respect relative URL as path
+    pathForClient = socketUrl;
   } else if (socketUrl.includes("localhost")) {
     urlForClient = socketUrl.replace("localhost", "127.0.0.1");
   }
