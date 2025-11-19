@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"node_modules\\\\@capacitor\\\\app\\\\dist\\\\esm\\\\index.js -> ./web":{"id":31224,"files":["static/chunks/1224.8851d6af6573bd53.js"]}}';
