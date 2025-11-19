@@ -47,26 +47,36 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
   };
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post("/api/users/login", { email, password });
-    const { access_token, full_name, role, id, must_change_password } = res.data;
-    const authUser = { id, full_name, role, must_change_password } as AuthUser;
+    const res = await api.post("/login", { email, password });
+    const token = res?.data?.data?.token || res?.data?.token || res?.data?.access_token;
+    if (!token) throw new Error("Giriş başarısız");
+    const payload = (() => {
+      try {
+        const p = token.split(".")[1];
+        const b64 = p.replace(/-/g, "+").replace(/_/g, "/");
+        const json = JSON.parse(typeof window !== "undefined" ? atob(b64) : Buffer.from(b64, "base64").toString("utf-8"));
+        return json || {};
+      } catch {
+        return {};
+      }
+    })();
+    const role = (payload?.role || "guest") as Role;
+    const id = Number(payload?.id || 0);
+    const full_name = email;
+    const authUser = { id, full_name, role } as AuthUser;
     setUser(authUser);
-    setToken(access_token);
-    setAuthToken(access_token);
-    localStorage.setItem("vip_token", access_token);
+    setToken(token);
+    setAuthToken(token);
+    localStorage.setItem("vip_token", token);
     localStorage.setItem("vip_user", JSON.stringify(authUser));
     document.cookie = `role=${role}; path=/`;
-    document.cookie = `token=${access_token}; path=/`;
+    document.cookie = `token=${token}; path=/`;
     toast.success(`Hoş geldiniz, ${full_name}`);
-    if (must_change_password && role === "partner") {
-      window.location.href = "/change-password";
-    } else {
-      roleRedirect(role);
-    }
+    roleRedirect(role);
   }, []);
 
   const register = useCallback(async (full_name: string, email: string, password: string, role: Role) => {
-    await api.post("/api/users/register", { full_name, email, password, role });
+    await api.post("/register", { name: full_name, email, password, role });
     toast.success("Hesap oluşturuldu. Şimdi giriş yapabilirsiniz.");
   }, []);
 

@@ -24,7 +24,7 @@ export type DriverApplyInput = {
 export function useApplyPartner() {
   return useMutation({
     mutationFn: async (payload: PartnerApplyInput) => {
-      const { data } = await api.post("/api/partners/apply", payload);
+      const { data } = await api.post("/partner/apply", payload);
       return data;
     },
     retry: 1,
@@ -34,7 +34,7 @@ export function useApplyPartner() {
 export function useApplyDriver() {
   return useMutation({
     mutationFn: async (payload: DriverApplyInput) => {
-      const { data } = await api.post("/api/drivers/apply", payload);
+      const { data } = await api.post("/driver/apply", payload);
       return data;
     },
     retry: 1,
