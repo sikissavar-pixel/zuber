@@ -2,7 +2,7 @@ import axios from "axios";
 
 export const API = process.env.NEXT_PUBLIC_API_URL || "";
 
-const api = axios.create({ baseURL: API });
+const api = axios.create({ baseURL: API, withCredentials: true });
 
 let token: string | null = null;
 export function setAuthToken(t: string | null) {
