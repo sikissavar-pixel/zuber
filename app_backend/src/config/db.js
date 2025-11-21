@@ -12,7 +12,8 @@ if (!connectionString) {
   throw new Error("DATABASE_URL not found");
 }
 
-const useSsl = true;
+const sslEnv = (process.env.DATABASE_SSL ?? "true").toString().toLowerCase();
+const useSsl = sslEnv !== "false";
 
 export const pool = new Pool({ connectionString, ssl: useSsl ? { rejectUnauthorized: false } : false });
 
