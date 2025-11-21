@@ -1,8 +1,12 @@
 FROM node:20-alpine
+WORKDIR /app
+
+# Copy backend source first to ensure package.json is present in context
+COPY backend ./backend
+
 WORKDIR /app/backend
-COPY backend/package*.json ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
-COPY backend .
+
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
