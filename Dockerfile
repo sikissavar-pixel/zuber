@@ -1,8 +1,8 @@
 FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-EXPOSE 8080
-CMD ["sh", "-lc", "PORT=${PORT:-8080} npm run start"]
+WORKDIR /app/backend
+COPY backend/package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+COPY backend .
+ENV NODE_ENV=production
+EXPOSE 3001
+CMD ["npm", "run", "start"]
