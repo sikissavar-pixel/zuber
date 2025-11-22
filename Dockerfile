@@ -8,6 +8,7 @@ COPY frontend ./frontend
 WORKDIR /app/frontend
 
 RUN npm install
+RUN npm install sonner @react-google-maps/api @tanstack/react-query
 RUN npm run build
 
 # ---------- Production Stage ----------
