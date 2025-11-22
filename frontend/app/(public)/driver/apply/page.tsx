@@ -6,13 +6,11 @@ import { motion } from "framer-motion";
 export default function DriverApplyPage() {
   const { mutateAsync, isPending, isSuccess } = useApplyDriver();
   const [form, setForm] = useState({
-    full_name: "",
+    name: "",
     email: "",
     phone: "",
     city: "",
     license_no: "",
-    vehicle_brand: "",
-    vehicle_model: "",
     vehicle_plate: "",
     description: "",
   });
