@@ -1,14 +1,14 @@
 # ---------- Build Stage ----------
 FROM node:20-alpine AS builder
 
-WORKDIR /app
-
-COPY frontend ./frontend
-
 WORKDIR /app/frontend
 
-RUN npm install
-RUN npm install sonner @react-google-maps/api @tanstack/react-query
+COPY frontend/package.json frontend/package-lock.json ./
+
+RUN npm ci --legacy-peer-deps
+
+COPY frontend ./
+
 RUN npm run build
 
 # ---------- Production Stage ----------
