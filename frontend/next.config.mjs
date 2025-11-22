@@ -1,11 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  experimental: {
-    serverActions: {
-      allowedOrigins: ["*"],
-    },
-  },
+  // Keep config simple and compatible with Next 14 + React 18
 };
 
 export default nextConfig;

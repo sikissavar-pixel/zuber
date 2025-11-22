@@ -4,11 +4,12 @@ let socket: Socket | null = null;
 
 export function getSocket() {
   if (socket) return socket;
-  
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || API_URL;
+  const base = process.env.NEXT_PUBLIC_API_URL || "";
+  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || base;
+  const socketPath = process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io";
 
-  socket = io(SOCKET_URL, {
+  socket = io(socketUrl, {
+    path: socketPath,
     transports: ["websocket", "polling"],
     autoConnect: true,
     withCredentials: true,

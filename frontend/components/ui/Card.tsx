@@ -11,11 +11,11 @@ export const CardHeader: React.FC<React.PropsWithChildren<{ className?: string }
 };
 
 export const CardTitle: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => {
-  return <h3 className={cn("font-bold text-xl text-[var(--gold)] tracking-tight", className)}>{children}</h3>;
+  return <h3 className={cn("font-cinzel text-xl text-[var(--gold)]", className)}>{children}</h3>;
 };
 
 export const CardContent: React.FC<React.PropsWithChildren<{ className?: string }>> = ({ className, children }) => {
-  return <div className={cn("text-sm text-[var(--gold-soft)]/90", className)}>{children}</div>;
+  return <div className={cn("text-sm text-[var(--foreground)]/90", className)}>{children}</div>;
 };
 
 export default Card;

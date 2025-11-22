@@ -34,36 +34,24 @@ html { scroll-behavior: smooth; }
 * { scrollbar-width: none !important; }
 
 :root {
-  /* Zuber Black-Gold 2025 palette (unified) */
-  --background: #000000;
-  --foreground: #f1c40f; /* text-primary */
-  --text-primary: #f1c40f;
-  --text-secondary: #e0c97a;
-  --text-muted: #bfa74a;
-  --gold: #f1c40f;
-  --gold-soft: #e0c97a;
-  --gold-muted: #bfa74a;
-  --card: #0d0d0d;
-  --panel: #111111;
-  --border: #f1c40f40;
-  --shadow-color: rgba(241, 196, 15, 0.25);
+  /* Zuber Gold 2025 palette */
+  --background: linear-gradient(180deg, #000000 0%, #0B0B0B 100%);
+  --foreground: #E9E9E9; /* main text */
+  --gold: #FFD54F; /* main gold */
+  --gold-muted: #FFCA28; /* accent gold for hover/borders */
+  --card: #121212;
+  --border: #1f1f1f;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--text-secondary);
+  --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-display: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-display: var(--font-cinzel);
   --color-gold: var(--gold);
-  --color-gold-soft: var(--gold-soft);
   --color-gold-muted: var(--gold-muted);
-  --color-dark: #0a0a0a;
-  --color-dark-card: var(--card);
-  --color-dark-panel: var(--panel);
+  --color-card: var(--card);
   --color-border: var(--border);
-  --shadow-glow: 0 0 12px rgba(241,196,15,0.25);
-  --shadow-glow-strong: 0 0 25px rgba(241,196,15,0.40);
   /* Mobile-first breakpoints tuned for Android devices */
   --breakpoint-sm: 360px;
   --breakpoint-md: 768px;
@@ -82,7 +70,7 @@ html { scroll-behavior: smooth; }
 
 body {
   background: var(--background);
-  color: var(--text-secondary);
+  color: var(--foreground);
   font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
   overflow-x: hidden;
 }
@@ -93,24 +81,20 @@ body {
 }
 
 .card {
-  background-color: rgba(13, 13, 13, 0.75);
+  background-color: rgba(18, 18, 18, 0.6);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 202, 40, 0.22);
   border-radius: 16px;
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
   transition: transform 180ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 
 .card:hover {
   transform: scale(1.02);
-  border-color: #f1c40f66;
-  box-shadow: var(--shadow-glow-strong);
+  border-color: rgba(255, 202, 40, 0.35);
+  box-shadow: 0 18px 50px rgba(255, 202, 40, 0.12), 0 12px 42px rgba(0,0,0,0.55);
 }
-
-/* Glow utility classes for reuse */
-.shadow-glow { box-shadow: var(--shadow-glow); }
-.shadow-glow-strong { box-shadow: var(--shadow-glow-strong); }
 
 .soft-border {
   border: 1px solid rgba(255, 202, 40, 0.28);
@@ -149,9 +133,9 @@ body {
   animation: goldPulse 3.2s ease-in-out infinite;
 }
 @keyframes goldPulse {
-  0% { text-shadow: 0 0 8px var(--shadow-color); }
-  50% { text-shadow: 0 0 16px rgba(241,196,15,0.4); }
-  100% { text-shadow: 0 0 8px var(--shadow-color); }
+  0% { text-shadow: 0 0 8px rgba(255,213,79,0.25); }
+  50% { text-shadow: 0 0 16px rgba(255,213,79,0.45); }
+  100% { text-shadow: 0 0 8px rgba(255,213,79,0.25); }
 }
 
 /* Golden underline link hover */
@@ -165,7 +149,7 @@ body {
   bottom: -2px;
   width: 0%;
   height: 2px;
-  background: linear-gradient(90deg, #f1c40f, #e0c97a);
+  background: linear-gradient(90deg, #FFD54F, #FFCA28);
   transition: width 200ms ease;
 }
 .gold-underline:hover::after, .gold-underline.active::after {
@@ -175,8 +159,8 @@ body {
 /* Input focus gold glow helper */
 .gold-focus:focus {
   outline: none;
-  border-color: #f1c40f !important;
-  box-shadow: 0 0 0 4px rgba(241,196,15,0.18) inset, 0 0 14px rgba(241,196,15,0.24) !important;
+  border-color: #FFCA28 !important;
+  box-shadow: 0 0 0 4px rgba(255,202,40,0.18) inset, 0 0 14px rgba(255,202,40,0.24) !important;
 }
 
 /* Yellow glass boxes (sarı kutular) */
@@ -195,11 +179,6 @@ body {
 /* Font helpers */
 .font-cinzel { font-family: var(--font-cinzel), serif; }
 .font-inter { font-family: var(--font-inter), system-ui, sans-serif; }
-.font-mono { font-family: var(--font-inter), ui-monospace, monospace; }
-
-/* Shadows per spec */
-.shadow-glow { box-shadow: 0 0 12px var(--shadow-color); }
-.shadow-glowStrong { box-shadow: 0 0 25px rgba(241,196,15,0.4); }
 
 /* Amber glow ring for hero title and cards (limited updates via steps) */
 @keyframes amberRotate {

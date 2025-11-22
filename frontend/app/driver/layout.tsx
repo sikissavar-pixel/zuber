@@ -41,42 +41,48 @@ function Inner({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen text-gold-soft font-inter flex" style={{ background: "radial-gradient(ellipse at top left, rgba(241,196,15,0.15) 0%, transparent 60%)", backgroundColor: "#000" }}>
-      {/* Sidebar */}
-      <aside className="w-72 p-4 border-r border-[var(--border)] bg-gradient-to-b from-[var(--panel)] via-black to-[var(--panel)] backdrop-blur-sm">
+    <div className="min-h-screen bg-gradient-to-b from-yellow-600/40 via-yellow-900/10 to-black text-yellow-400 font-inter flex">
+      <aside className="w-72 p-4 border-r border-yellow-500/30 bg-black/80 backdrop-blur-sm">
         <div className="mb-6">
-          <div className="text-2xl font-bold text-gold drop-shadow-glow">Zuber Driver</div>
-          <div className="text-sm text-gold-muted">Istanbul Edition</div>
+          <div className="text-2xl tracking-wide">Zuber Driver</div>
+          <div className="text-sm text-gray-400">Istanbul Edition</div>
         </div>
         <nav className="space-y-2">
           {nav.map((item) => {
             const Icon = item.icon;
             const active = pathname.startsWith(item.href);
             return (
-              <Link key={item.href} href={item.href}>
-                <div className={`flex items-center gap-3 px-3 py-2 rounded-2xl border transition-all duration-300 ${active ? "border-[var(--border)] shadow-glow" : "border-[var(--border)]/60"} hover:shadow-glow`}>
-                  <Icon className={`w-5 h-5 ${active ? "text-gold" : "text-gold-muted"}`} />
-                  <span className={`${active ? "gold-underline bg-clip-text text-transparent bg-gradient-to-r from-gold to-gold-soft" : "text-gold-soft"}`}>{item.label}</span>
-                </div>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all duration-300 ${
+                  active ? "bg-yellow-500/20 border-yellow-500/30 text-yellow-300" : "bg-black/60 border-yellow-500/30"
+                } hover:scale-[1.02] hover:shadow-[0_0_20px_#facc15]/20`}
+              >
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
-        <button onClick={logout} className="mt-6 w-full flex items-center gap-3 px-3 py-2 rounded-2xl shadow-glowStrong bg-gradient-to-r from-gold to-gold-soft text-black uppercase tracking-wide">
+        <button
+          onClick={logout}
+          className="mt-6 w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-yellow-500/30 bg-black/60 backdrop-blur-sm hover:scale-[1.02] hover:shadow-[0_0_20px_#facc15]/20 transition-all duration-300"
+        >
           <LogOut className="w-5 h-5" />
           <span>Çıkış</span>
         </button>
-        <div className="mt-4 text-xs text-gold-muted">Hoş geldin, {user?.full_name || "Sürücü"}</div>
+        <div className="mt-4 text-xs text-gray-400">Hoş geldin, {user?.full_name || "Sürücü"}</div>
       </aside>
-      {/* Content */}
       <main className="flex-1 p-6">
-        <div className="mb-4 flex items-center justify-between px-4 py-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-sm text-gold-soft">
+        <div className="mb-4 flex items-center justify-between px-4 py-2 rounded-xl border border-yellow-500/30 bg-black/60 backdrop-blur-sm">
+          <div className="flex items-center gap-2 text-sm text-gray-300">
             <Signal className={`w-4 h-4 ${online ? "text-green-400" : "text-red-400"}`} />
             <span>{online ? "Çevrimiçi" : "Çevrimdışı"}</span>
           </div>
-          <div className="text-sm font-mono text-gold-soft">{time}</div>
+          <div className="text-sm text-gray-300">{time}</div>
         </div>
+        <div className="h-1 rounded-xl bg-gradient-to-r from-yellow-700/20 to-transparent mb-4" />
         {children}
       </main>
     </div>

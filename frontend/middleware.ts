@@ -2,21 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  // Development bypass: when NEXT_PUBLIC_DISABLE_AUTH=1, skip all auth redirects
-  // This enables previewing protected pages/styles without logging in.
-  // Do NOT enable this in production.
-  const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH === "1";
-  const url = request.nextUrl.clone();
-  const pathname = url.pathname;
-  const isPreview = url.searchParams.get("preview") === "1";
-  if (disableAuth || isPreview) {
-    return NextResponse.next();
-  }
-
   const token = request.cookies.get("token")?.value;
   const role = request.cookies.get("role")?.value as "guest" | "driver" | "partner" | "admin" | undefined;
 
-  // url and pathname already defined above
+  const url = request.nextUrl.clone();
+  const pathname = url.pathname;
 
   // Public routes whitelist
   const publicPaths = ["/", "/login", "/register", "/partner/apply", "/driver/apply", "/partner-apply", "/driver-apply"];

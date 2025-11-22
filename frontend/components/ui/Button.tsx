@@ -16,20 +16,20 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   ...props
 }) => {
-  const base = "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold uppercase tracking-wide transition-all focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 ring-offset-2 ring-offset-black disabled:opacity-60 disabled:cursor-not-allowed shadow-[var(--shadow-glow-strong)]";
+  const base = "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_6px_16px_rgba(255,213,79,0.18)]";
   const variants: Record<Variant, string> = {
     primary:
-      "text-black border border-[var(--border)] hover:brightness-105",
+      "text-black border border-[#FFCA28] hover:brightness-105 focus:ring-[var(--gold)] ring-offset-black",
     secondary:
-      "bg-black/30 backdrop-blur-md text-[var(--text-secondary)] border border-yellow-800/30 hover:border-[var(--gold)]",
-    ghost: "bg-transparent text-[var(--text-secondary)] hover:text-[var(--gold)]",
-    outline: "bg-transparent text-[var(--text-secondary)] border border-yellow-800/30 hover:border-[var(--gold)]",
+      "bg-black/30 backdrop-blur-md text-[var(--foreground)] border border-yellow-800/30 hover:border-[var(--gold)]",
+    ghost: "bg-transparent text-[var(--foreground)] hover:text-[var(--gold)]",
+    outline: "bg-transparent text-[var(--foreground)] border border-yellow-800/30 hover:border-[var(--gold)]",
   };
   return (
     <button
       className={cn(
         base,
-        variant === "primary" ? "bg-gradient-to-b from-[var(--gold)] to-[var(--gold-soft)] hover:shadow-glow-strong" : "",
+        variant === "primary" ? "[background-image:linear-gradient(180deg,#FFD54F_0%,#FFC107_55%,#FFB300_100%)]" : "",
         variants[variant],
         className
       )}

@@ -11,9 +11,17 @@ const staticOrigins = [
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...staticOrigins]));
 
+const allowedPatterns = [
+  /^https?:\/\/localhost(?::\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(?::\d+)?$/,
+  /^https:\/\/zuber-[a-z0-9-]+\.vercel\.app$/,
+  /^https:\/\/www\.zuber-[a-z0-9-]+\.vercel\.app$/,
+];
+
 export const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    const ok = !origin || allowedOrigins.includes(origin) || allowedPatterns.some((p) => p.test(origin));
+    if (ok) {
       return callback(null, true);
     }
     console.error("❌ BLOCKED ORIGIN:", origin);

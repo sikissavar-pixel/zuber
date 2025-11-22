@@ -1,3 +1,7 @@
+// A thin wrapper around Google Play Billing plugins for Capacitor.
+// First tries the 'capacitor-billing' plugin (actively maintained),
+// then falls back to common global plugin names for broader compatibility.
+
 export type PurchaseResult = {
   productId: string;
   purchaseToken: string;
@@ -8,13 +12,17 @@ async function getBilling(): Promise<{
   type: "capacitor-billing" | "global";
   plugin: any;
 } | null> {
+  // Try to import the recommended plugin first
   try {
     const mod = await import("capacitor-billing");
     if (mod?.BillingPlugin) {
       return { type: "capacitor-billing", plugin: mod.BillingPlugin };
     }
-  } catch (_) {}
+  } catch (_) {
+    // ignore dynamic import errors
+  }
 
+  // Fallback to global plugin references
   const w: any = typeof window !== "undefined" ? window : undefined;
   const globalPlugin =
     w?.Capacitor?.Plugins?.PlayBilling ||
@@ -39,7 +47,9 @@ export async function purchaseProduct(productId: string): Promise<PurchaseResult
   let lastErr: any = null;
 
   if (type === "capacitor-billing") {
+    // Preferred path using 'capacitor-billing' API
     try {
+      // Attempt INAPP first, then SUBS as fallback
       res = await plugin.launchBillingFlow({ product: productId, type: "INAPP" });
     } catch (e1) {
       lastErr = e1;
@@ -50,6 +60,7 @@ export async function purchaseProduct(productId: string): Promise<PurchaseResult
       }
     }
   } else {
+    // Fallback signatures across various community plugins
     const candidates: Array<() => Promise<any>> = [
       () => plugin.purchase?.({ productId }),
       () => plugin.purchase?.({ sku: productId }),
@@ -70,12 +81,13 @@ export async function purchaseProduct(productId: string): Promise<PurchaseResult
     throw lastErr || new Error("Failed to perform purchase: no compatible method found");
   }
 
+  // Normalize result fields
   const purchaseToken =
     res?.purchaseToken ||
     res?.token ||
     res?.purchase?.purchaseToken ||
     res?.purchaseTokenAndroid ||
-    res?.purchaseToken?.value ||
+    res?.purchaseToken?.value || // Some plugins wrap result fields
     res?.transactionInfo?.purchaseToken;
 
   if (!purchaseToken) {

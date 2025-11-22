@@ -37,21 +37,23 @@ function Shell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen text-[var(--text-secondary)] vip-radial">
+    <div className="min-h-screen text-yellow-100" style={{ background: "radial-gradient(ellipse at top left, #facc15 0%, transparent 60%)", backgroundColor: "#000" }}>
       <div className="flex">
         {/* Sidebar */}
-        <aside className={`${open ? "w-64" : "w-16"} sticky top-0 h-screen bg-gradient-to-b from-[var(--panel)] via-black to-[var(--panel)] backdrop-blur border-r border-[var(--border)] transition-all duration-300 shadow-glow`}>
+        <aside className={`${open ? "w-64" : "w-16"} sticky top-0 h-screen bg-black/80 backdrop-blur border-r border-yellow-500/30 transition-all duration-300`}
+          style={{ boxShadow: "0 0 30px rgba(234,179,8,0.15)" }}>
           <div className="flex items-center justify-between px-4 h-14 border-b border-yellow-500/30">
-            <div className="font-semibold text-[var(--gold)] text-sm">{open ? "Zuber Partner Portal" : "ZP"}</div>
-            <button onClick={() => setOpen((o) => !o)} className="text-[var(--gold-soft)] hover:text-[var(--gold)] transition">{open ? "⟨" : "⟩"}</button>
+            <div className="font-semibold text-yellow-400 text-sm">{open ? "Zuber Partner Portal" : "ZP"}</div>
+            <button onClick={() => setOpen((o) => !o)} className="text-yellow-300">{open ? "⟨" : "⟩"}</button>
           </div>
           <nav className="py-3">
             {items.map((it) => {
               const active = pathname === it.href || (it.href !== "/partner/bookings/new" && pathname?.startsWith(it.href));
               return (
                 <Link key={it.href} href={it.href}>
-                  <div className={`mx-2 my-1 ${open ? "px-3" : "px-1"} py-2 rounded-xl cursor-pointer transition group ${active ? "bg-black/40 shadow-glow" : "hover:bg-black/30"}`}>
-                    <span className={`text-sm ${active ? "text-transparent bg-clip-text bg-gradient-to-r from-[var(--gold)] to-[var(--gold-soft)] underline decoration-[var(--gold-soft)] underline-offset-4" : "text-[var(--text-secondary)]"}`}>{open ? it.label : it.label[0]}</span>
+                  <div className={`mx-2 my-1 ${open ? "px-3" : "px-1"} py-2 rounded-xl cursor-pointer transition group ${active ? "bg-yellow-500/20" : "hover:bg-yellow-500/10"}`}
+                    style={{ boxShadow: active ? "0 0 20px rgba(234,179,8,0.25)" : undefined }}>
+                    <span className={`text-sm ${active ? "text-yellow-400" : "text-yellow-200"}`}>{open ? it.label : it.label[0]}</span>
                   </div>
                 </Link>
               );
@@ -87,26 +89,26 @@ function UserBar() {
   const { user, logout } = Auth.useAuth?.() || { user: null, logout: () => {} };
   const [menuOpen, setMenuOpen] = React.useState(false);
   return (
-    <div className="relative flex items-center gap-3 text-[var(--text-secondary)] font-semibold">
+    <div className="relative flex items-center gap-3 text-yellow-300">
       <button
         onClick={() => setMenuOpen((v: boolean) => !v)}
-        className="text-sm hover:text-[var(--gold)] transition"
+        className="text-sm hover:text-yellow-400 transition"
       >
         {user?.full_name || user?.username || "Partner"}
       </button>
       <button
         onClick={() => { try { logout?.(); } catch {} window.location.href = "/login"; }}
-        className="px-3 py-1 rounded-xl bg-gradient-to-b from-[var(--gold)] to-[var(--gold-soft)] text-black font-semibold hover:shadow-glow-strong transition"
+        className="px-3 py-1 rounded-lg bg-yellow-500 text-black font-semibold hover:bg-yellow-400 transition"
       >
         Çıkış
       </button>
       {menuOpen && (
-        <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-[var(--border)] bg-neutral-950/70 backdrop-blur-md shadow-glow">
+        <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-yellow-400/20 bg-neutral-950/70 backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.25)]">
           <div className="py-2">
-            <Link href="/partner/wallet" className="block px-3 py-2 text-[var(--text-secondary)] hover:bg-black/30">Cüzdanım</Link>
-            <Link href="/partner/profile" className="block px-3 py-2 text-[var(--text-secondary)] hover:bg-black/30">Profilim</Link>
-            <Link href="/partner/security" className="block px-3 py-2 text-[var(--text-secondary)] hover:bg-black/30">Şifre & Güvenlik</Link>
-            <button onClick={() => { try { logout?.(); } catch {} window.location.href = "/login"; }} className="w-full text-left px-3 py-2 text-[var(--text-secondary)] hover:bg-black/30">Çıkış</button>
+            <Link href="/partner/wallet" className="block px-3 py-2 text-yellow-200 hover:bg-yellow-500/10">Cüzdanım</Link>
+            <Link href="/partner/profile" className="block px-3 py-2 text-yellow-200 hover:bg-yellow-500/10">Profilim</Link>
+            <Link href="/partner/security" className="block px-3 py-2 text-yellow-200 hover:bg-yellow-500/10">Şifre & Güvenlik</Link>
+            <button onClick={() => { try { logout?.(); } catch {} window.location.href = "/login"; }} className="w-full text-left px-3 py-2 text-yellow-200 hover:bg-yellow-500/10">Çıkış</button>
           </div>
         </div>
       )}

@@ -2,10 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
-import { Reservation } from "@/hooks/useReservations";
+import { useMyReservations, Reservation } from "@/hooks/useReservations";
 import { getSocket } from "@/lib/socket";
-import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
 
 export default function PartnerDashboardPage() {
   return (
@@ -17,69 +15,50 @@ export default function PartnerDashboardPage() {
 
 function Inner() {
   const { user } = useAuth();
+  const { data: reservations } = useMyReservations();
   const [events, setEvents] = useState<{ type: string; message: string; ts: number }[]>([]);
-
-  // Fetch stats
-  const { data: stats } = useQuery<{ monthly_income: number; active_bids: number; assigned_rides: number }>({
-    queryKey: ["partner", "reservations", "stats"],
-    queryFn: async () => {
-      const { data } = await api.get("/api/partner/reservations/stats");
-      return data;
-    },
-    staleTime: 10_000,
-    refetchInterval: 30_000,
-  });
-
-  // Fetch last three reservations (include open bids)
-  const { data: recent } = useQuery<Reservation[]>({
-    queryKey: ["partner", "reservations", "recent"],
-    queryFn: async () => {
-      const { data } = await api.get("/api/partner/reservations", { params: { include_open_bids: true, limit: 3 } });
-      return data;
-    },
-    staleTime: 10_000,
-    refetchInterval: 20_000,
-  });
-
+  
   useEffect(() => {
     const socket = getSocket();
     const onUpdate = (payload: any) => setEvents((e) => [{ type: "booking_update", message: payload?.message || "Rezervasyon güncellendi", ts: Date.now() }, ...e].slice(0, 5));
     const onMsg = (payload: any) => setEvents((e) => [{ type: "chat_message", message: `Yeni mesaj (#${payload?.booking_id})`, ts: Date.now() }, ...e].slice(0, 5));
     const onAssigned = (payload: any) => setEvents((e) => [{ type: "reservation_assigned", message: `Sürücü atandı (#${payload?.id})`, ts: Date.now() }, ...e].slice(0, 5));
-    const onBid = (payload: any) => setEvents((e) => [{ type: "bid_submitted", message: `Yeni teklif geldi (#${payload?.reservation_id})`, ts: Date.now() }, ...e].slice(0, 5));
-    const onBidAccepted = (payload: any) => setEvents((e) => [{ type: "bid_accepted", message: `Teklif kabul edildi (#${payload?.reservation_id})`, ts: Date.now() }, ...e].slice(0, 5));
     socket.on("booking_update", onUpdate);
     socket.on("chat_message", onMsg);
     socket.on("reservation_assigned", onAssigned);
-    socket.on("bid_submitted", onBid);
-    socket.on("bid_accepted", onBidAccepted);
     return () => {
       socket.off("booking_update", onUpdate);
       socket.off("chat_message", onMsg);
       socket.off("reservation_assigned", onAssigned);
-      socket.off("bid_submitted", onBid);
-      socket.off("bid_accepted", onBidAccepted);
     };
   }, []);
+
+  const monthly = useMemo(() => {
+    // Basic income aggregation by month from reservations
+    const map: Record<string, number> = {};
+    (reservations || []).forEach((r) => {
+      const d = new Date(r.pickup_time || r.created_at || Date.now());
+      const key = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,"0")}`;
+      const amt = typeof r.total_amount === "string" ? parseFloat(r.total_amount) : Number(r.total_amount || 0);
+      map[key] = (map[key] || 0) + (amt || 0);
+    });
+    const keys = Object.keys(map).sort();
+    return keys.slice(-6).map((k) => ({ label: k, value: map[k] }));
+  }, [reservations]);
+
+  const lastThree = useMemo(() => (reservations || []).slice(0,3), [reservations]);
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-yellow-400">Hoş geldin{user?.full_name ? `, ${user.full_name}` : ""}</h1>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card title="Aylık Gelir">
-          <div className="text-3xl font-bold text-yellow-400">₺ {Number(stats?.monthly_income || 0).toLocaleString("tr-TR")}</div>
-          <div className="text-yellow-200 text-xs mt-1">Bu ay tamamlanan sürüşlerden</div>
+          <IncomeChart data={monthly} />
         </Card>
-        <a href="/partner/bids/open" className="block">
-          <Card title="Aktif Açık Teklifler" className="xl:col-span-1 cursor-pointer hover:shadow-[0_0_40px_rgba(234,179,8,0.35)]">
-            <div className="text-2xl font-semibold text-yellow-300">{stats?.active_bids ?? 0}</div>
-            <div className="text-yellow-200 text-xs mt-1">Teklif aşamasındaki rezervasyonlar</div>
-          </Card>
-        </a>
         <Card title="Son 3 Rezervasyon" className="xl:col-span-1">
           <div className="space-y-3">
-            {(recent || []).length === 0 && <div className="text-yellow-200">Kayıt bulunmuyor.</div>}
-            {(recent || []).map((r) => (
+            {lastThree.length === 0 && <div className="text-yellow-200">Kayıt bulunmuyor.</div>}
+            {lastThree.map((r) => (
               <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60">
                 <div>
                   <div className="text-yellow-300 text-sm">#{r.id} • {new Date(r.pickup_time || r.created_at || Date.now()).toLocaleDateString()}</div>
@@ -115,15 +94,30 @@ function Card({ title, children, className = "" }: { title: string; children: Re
   );
 }
 
-function StatusBadge({ status }: { status: Reservation["status"] | string }) {
-  const map: Record<string, { label: string; className: string }> = {
-    open_bid: { label: "Teklif Aşamasında", className: "text-yellow-300" },
-    pending: { label: "Bekliyor", className: "text-yellow-300" },
-    assigned: { label: "Atandı", className: "text-green-400" },
-    completed: { label: "Tamamlandı", className: "text-blue-400" },
+function StatusBadge({ status }: { status: Reservation["status"] }) {
+  const map: Record<string, string> = {
+    pending: "🟡 Bekliyor",
+    assigned: "🟢 Atandı",
+    accepted: "🟢 Onaylandı",
+    started: "🚗 Yola Çıkıldı",
+    arrived: "📍 Varışta",
+    qr_pending: "🔶 QR Bekleniyor",
+    completed: "🔵 Tamamlandı",
   };
-  const m = map[status] || { label: status, className: "text-yellow-200" };
-  return <span className={`text-sm ${m.className}`}>{m.label}</span>;
+  return <span className="text-sm">{map[status] || status}</span>;
 }
 
-// Chart removed: using aggregated monthly income metric from stats
+function IncomeChart({ data }: { data: { label: string; value: number }[] }) {
+  if (data.length === 0) return <div className="text-yellow-200">Veri yok</div>;
+  const max = Math.max(...data.map((d) => d.value)) || 1;
+  return (
+    <div className="flex items-end gap-3 h-40">
+      {data.map((d) => (
+        <div key={d.label} className="flex flex-col items-center w-12">
+          <div className="w-full rounded-t-xl bg-yellow-500" style={{ height: `${Math.round((d.value / max) * 140)}px`, boxShadow: "0 0 20px rgba(234,179,8,0.4)" }} />
+          <div className="mt-2 text-[10px] text-yellow-300">{d.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}

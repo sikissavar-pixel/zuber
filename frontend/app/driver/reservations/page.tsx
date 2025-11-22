@@ -6,8 +6,6 @@ import api from "@/lib/api";
 import type { Reservation } from "@/hooks/useReservations";
 import { useAuth } from "@/hooks/useAuth";
 import { getSocket } from "@/lib/socket";
-import Link from "next/link";
-import { toast } from "sonner";
 
 export default function DriverReservations() {
   const { user } = useAuth();
@@ -27,43 +25,27 @@ export default function DriverReservations() {
     const socket = getSocket();
     const refetchIfMine = (payload: any) => {
       if (!payload) return;
+      // Only refetch when the update concerns the logged-in driver
       if (payload.driver_id && user?.id && Number(payload.driver_id) === Number(user.id)) {
         queryClient.invalidateQueries({ queryKey: ["driver", "reservations"] });
       }
     };
     socket.on("reservation_assigned", refetchIfMine);
     socket.on("reservation_updated", refetchIfMine);
-    socket.on("qr_verified", refetchIfMine);
-    socket.on("ride_completed", refetchIfMine);
-    socket.on("payment_confirmed", refetchIfMine);
     return () => {
       socket.off("reservation_assigned", refetchIfMine);
       socket.off("reservation_updated", refetchIfMine);
-      socket.off("qr_verified", refetchIfMine);
-      socket.off("ride_completed", refetchIfMine);
-      socket.off("payment_confirmed", refetchIfMine);
     };
   }, [queryClient, user?.id]);
 
-  const startRide = async (id: number) => {
+  const updateStatus = async (id: number, status: Reservation["status"]) => {
     try {
-      await api.post(`/api/driver/rides/start/${id}`);
-      toast.success("Sürüş başlatıldı.");
+      await api.patch(`/api/reservations/${id}/status`, { status });
+      // Socket will update, but also refetch to be responsive
       queryClient.invalidateQueries({ queryKey: ["driver", "reservations"] });
-      // Redirect to QR verification page
-      window.location.href = `/driver/qr-verification?reservation_id=${id}`;
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "Sürüş başlatılamadı");
-    }
-  };
-
-  const completeRide = async (id: number) => {
-    try {
-      await api.post(`/api/driver/rides/complete/${id}`);
-      toast.success("Sürüş tamamlandı, ödeme bekleniyor.");
-      queryClient.invalidateQueries({ queryKey: ["driver", "reservations"] });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || "Sürüş tamamlanamadı");
+    } catch (e) {
+      console.error(e);
+      alert("Durum güncellenemedi");
     }
   };
 
@@ -71,9 +53,7 @@ export default function DriverReservations() {
     if (r.status === "assigned") {
       return (
         <button
-          onClick={() => {
-            if (confirm("Yolcu alındı mı?")) startRide(r.id);
-          }}
+          onClick={() => updateStatus(r.id, "in_progress")}
           className="px-3 py-1 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:scale-[1.02] transition-all"
         >
           Sürüşü Başlat
@@ -82,23 +62,13 @@ export default function DriverReservations() {
     }
     if (r.status === "in_progress") {
       return (
-        <Link href={`/driver/qr-verification?reservation_id=${r.id}`} className="px-3 py-1 rounded-lg bg-yellow-600 text-black text-xs font-semibold hover:scale-[1.02] transition-all">
-          QR Onayı Bekleniyor
-        </Link>
-      );
-    }
-    if (r.status === "in_progress_verified") {
-      return (
         <button
-          onClick={() => completeRide(r.id)}
+          onClick={() => updateStatus(r.id, "completed")}
           className="px-3 py-1 rounded-lg bg-green-500 text-black text-xs font-semibold hover:scale-[1.02] transition-all"
         >
-          Sürüşü Bitir
+          Tamamla
         </button>
       );
-    }
-    if (r.status === "completed_unpaid") {
-      return <span className="text-yellow-300">Ödeme Bekleniyor…</span>;
     }
     return null;
   };
@@ -112,17 +82,14 @@ export default function DriverReservations() {
   }, [reservations, filter]);
 
   const statusBadge = (s: Reservation["status"]) => {
-    const map: Record<string, { label: string; className: string }> = {
+    const map: Record<Reservation["status"], { label: string; className: string }> = {
       pending: { label: "Bekliyor", className: "bg-yellow-700/30 text-yellow-300" },
       assigned: { label: "Atandı", className: "bg-green-700/30 text-green-300" },
       in_progress: { label: "Sürüşte", className: "bg-blue-700/30 text-blue-300" },
-      in_progress_verified: { label: "QR Onaylı", className: "bg-indigo-700/30 text-indigo-300" },
-      completed_unpaid: { label: "Tamamlandı (Ödeme Bek.)", className: "bg-yellow-800/30 text-yellow-300" },
-      completed_paid: { label: "Tamamlandı (Ödendi)", className: "bg-gray-700/30 text-gray-300" },
       completed: { label: "Tamamlandı", className: "bg-gray-700/30 text-gray-300" },
       cancelled: { label: "İptal", className: "bg-red-700/30 text-red-300" },
     };
-    const m = map[s] || { label: s, className: "bg-slate-700/30 text-slate-300" };
+    const m = map[s];
     return <span className={`px-2 py-1 rounded-lg text-xs ${m.className}`}>{m.label}</span>;
   };
 

@@ -14,15 +14,7 @@ export type Reservation = {
   pickup_location: string;
   dropoff_location: string;
   pickup_time: string;
-  status:
-    | "pending"
-    | "assigned"
-    | "in_progress"
-    | "in_progress_verified"
-    | "completed_unpaid"
-    | "completed_paid"
-    | "completed"
-    | "cancelled";
+  status: "pending" | "assigned" | "in_progress" | "completed" | "cancelled";
   payment_status: "unpaid" | "paid";
   total_amount?: number | string;
   payment_reference?: string | null;
