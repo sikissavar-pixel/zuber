@@ -175,7 +175,7 @@ function AdminDashboardContent() {
       <Navbar />
       <MobileAppBridge />
       <main className="mx-auto max-w-6xl px-4 py-8 space-y-8 bg-black min-h-screen text-gray-200 font-inter">
-        <h1 className="font-[var(--font-display)] text-3xl md:text-4xl text-[var(--gold)] title-glow">Zuber Yönetim Paneli</h1>
+        <h1 className="font-[var(--font-display)] text-3xl md:text-4xl text-[var(--gold)] title-glow">Zuber Control Room</h1>
 
         {/* Tabs */}
         <div className="flex items-center gap-2 border-b border-yellow-800/30 pb-2">
