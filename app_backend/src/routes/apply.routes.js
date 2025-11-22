@@ -11,4 +11,8 @@ r.post("/api/driver/apply", driverApply);
 r.post("/partner/apply", partnerApply);
 r.post("/driver/apply", driverApply);
 
+// Additional aliases for tests
+r.post("/applications/partner", partnerApply);
+r.post("/applications/driver", driverApply);
+
 export default r;

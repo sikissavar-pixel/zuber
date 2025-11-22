@@ -1,7 +1,10 @@
-export const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "")
+const baseOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+
+const requiredOrigin = "https://zuber-frontend-url.vercel.app";
+export const allowedOrigins = Array.from(new Set([...(baseOrigins || []), requiredOrigin]));
 
 export const corsOptions = {
   origin(origin, callback) {
