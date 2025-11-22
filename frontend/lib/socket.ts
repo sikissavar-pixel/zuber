@@ -4,25 +4,14 @@ let socket: Socket | null = null;
 
 export function getSocket() {
   if (socket) return socket;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-  let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://127.0.0.1:8000";
-  const socketPath = process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io";
+  
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || API_URL;
 
-  let urlForClient = socketUrl;
-  let pathForClient = socketPath;
-
-  if (socketUrl.startsWith("/")) {
-    urlForClient = appUrl.replace("localhost", "127.0.0.1");
-    pathForClient = socketUrl;
-  } else if (socketUrl.includes("localhost")) {
-    urlForClient = socketUrl.replace("localhost", "127.0.0.1");
-  }
-
-  socket = io(urlForClient, {
-    path: pathForClient,
+  socket = io(SOCKET_URL, {
     transports: ["websocket", "polling"],
     autoConnect: true,
-    withCredentials: false,
+    withCredentials: true,
     reconnection: true,
     reconnectionAttempts: 5,
   });
