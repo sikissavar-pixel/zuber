@@ -1,12 +1,26 @@
-FROM node:20-alpine
+# ---------- Build Stage ----------
+FROM node:20-alpine AS builder
+
 WORKDIR /app
 
-# Copy application backend into image (avoid submodule issues)
-COPY app_backend ./app_backend
+COPY frontend ./frontend
 
-WORKDIR /app/app_backend
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+WORKDIR /app/frontend
+
+RUN npm install
+RUN npm run build
+
+# ---------- Production Stage ----------
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/frontend ./
 
 ENV NODE_ENV=production
-EXPOSE 3001
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+EXPOSE 3000
+
 CMD ["npm", "start"]
