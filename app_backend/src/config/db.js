@@ -39,16 +39,21 @@ export async function initDb() {
 }
 
 export async function ensureAdmin() {
-  const email = "admin@zuber.com";
-  const password = "123456";
+  const email = "ysr@gmail.com";
+  const password = "Aslan123";
   const role = "admin";
 
-  const check = await pool.query("SELECT * FROM users WHERE email = $1 LIMIT 1", [email]);
-  if (check.rows.length === 0) {
+  try {
+    const check = await pool.query("SELECT id FROM users WHERE email = $1 LIMIT 1", [email]);
     const hashed = await bcrypt.hash(password, 10);
-    await pool.query("INSERT INTO users (email, name, password, role) VALUES ($1,$2,$3,$4)", [email, "Admin", hashed, role]);
-    console.log("🔥 Admin user created:", email);
-  } else {
-    console.log("Admin already exists.");
+    if (check.rows.length === 0) {
+      await pool.query("INSERT INTO users (email, name, password, role) VALUES ($1,$2,$3,$4)", [email, "Admin", hashed, role]);
+      console.log("🔥 Admin user created:", email);
+    } else {
+      await pool.query("UPDATE users SET password=$1, role=$2, name=$3 WHERE email=$4", [hashed, role, "Admin", email]);
+      console.log("✔ Admin password reset and role ensured:", email);
+    }
+  } catch (err) {
+    console.error("Admin seed error:", err);
   }
 }
