@@ -1,4 +1,5 @@
 import pg from "pg";
+import bcrypt from "bcryptjs";
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const { Pool } = pg;
@@ -35,4 +36,25 @@ export async function initDb() {
   await pool.query(
     "CREATE TABLE IF NOT EXISTS partner_applications (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, phone VARCHAR(64), car_model VARCHAR(64), description TEXT, status VARCHAR(32) DEFAULT 'pending', created_at TIMESTAMP DEFAULT NOW())"
   );
+
+  async function seedAdmin() {
+    const email = "admin@zuber.com";
+    const password = "admin123";
+    const role = "admin";
+
+    try {
+      const check = await pool.query("SELECT * FROM users WHERE email = $1 LIMIT 1", [email]);
+      if (check.rows.length === 0) {
+        const hashed = await bcrypt.hash(password, 10);
+        await pool.query("INSERT INTO users (email, name, password, role) VALUES ($1,$2,$3,$4)", [email, "Admin", hashed, role]);
+        console.log("✔ Default admin oluşturuldu:", email);
+      } else {
+        console.log("✔ Admin zaten mevcut:", email);
+      }
+    } catch (err) {
+      console.error("Admin seed error:", err);
+    }
+  }
+
+  await seedAdmin();
 }
