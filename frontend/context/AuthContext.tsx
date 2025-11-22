@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
   }, []);
 
   const register = useCallback(async (full_name: string, email: string, password: string, role: Role) => {
-    await api.post("/api/users/register", { full_name, email, password, role });
+    await api.post("/api/users/register", { name: full_name, email, password, role });
     toast.success("Hesap oluşturuldu. Şimdi giriş yapabilirsiniz.");
   }, []);
 
