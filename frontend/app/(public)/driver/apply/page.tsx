@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 export default function DriverApplyPage() {
   const { mutateAsync, isPending, isSuccess } = useApplyDriver();
   const [form, setForm] = useState({
-    name: "",
+    full_name: "",
     email: "",
     phone: "",
     city: "",
@@ -75,8 +75,6 @@ export default function DriverApplyPage() {
           <input className="rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="phone" placeholder="Telefon" value={form.phone} onChange={onChange} required />
           <input className="rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="city" placeholder="Şehir" value={form.city} onChange={onChange} required />
           <input className="rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="license_no" placeholder="Ehliyet / Lisans No" value={form.license_no} onChange={onChange} required />
-          <input className="rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="vehicle_brand" placeholder="Araç Marka" value={form.vehicle_brand} onChange={onChange} required />
-          <input className="rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="vehicle_model" placeholder="Araç Model" value={form.vehicle_model} onChange={onChange} required />
             <input className="rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="vehicle_plate" placeholder="Plaka" value={form.vehicle_plate} onChange={onChange} required />
             <textarea className="rounded p-3 md:col-span-2 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" name="description" placeholder="Not / Açıklama" value={form.description} onChange={onChange} />
             {error && <p className="md:col-span-2 text-red-400">{error}</p>}
