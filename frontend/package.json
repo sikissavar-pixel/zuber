@@ -24,7 +24,10 @@
     "react-qr-code": "^2.0.18",
     "recharts": "^3.3.0",
     "@capacitor/app": "^6.0.0",
-    "@capacitor/status-bar": "^6.0.0"
+    "@capacitor/status-bar": "^6.0.0",
+    "@stripe/react-stripe-js": "^3.0.0",
+    "@stripe/stripe-js": "^4.0.0",
+    "capacitor-billing": "^6.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -37,6 +40,6 @@
     "typescript": "^5"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   }
 }
