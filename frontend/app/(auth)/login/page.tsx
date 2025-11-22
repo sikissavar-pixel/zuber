@@ -23,7 +23,7 @@ export default function LoginPage() {
       if (email === "ysr@gmail.com" && password === "Aslan123") {
         try {
           await (await import("../../../lib/api")).default.post("/api/users/register", {
-            full_name: "Admin",
+            name: "Admin",
             email,
             password,
             role: "admin",
