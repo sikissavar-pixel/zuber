@@ -16,11 +16,11 @@ export async function partnerApply(req, res) {
 
 export async function driverApply(req, res) {
   try {
-    const { name, phone, licenseType, experience, description } = req.body || {};
-    if (!name) return res.status(400).json({ success: false, message: "Missing name" });
+    const { full_name, email, phone, license_no, vehicle_plate, city, description } = req.body || {};
+    if (!full_name) return res.status(400).json({ success: false, message: "Missing full_name" });
     const ins = await pool.query(
       "INSERT INTO driver_applications(name, phone, license_type, experience, description) VALUES($1,$2,$3,$4,$5) RETURNING id,name,phone,license_type,experience,description,status,created_at",
-      [name, phone || null, licenseType || null, experience || null, description || null]
+      [full_name, phone || null, license_no || null, vehicle_plate || null, description || null]
     );
     return res.status(201).json({ success: true, message: "Application submitted", data: ins.rows[0] });
   } catch (error) {
