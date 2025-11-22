@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "export": "next export",
-    "start": "next start",
+    "start": "next start -p 3000",
     "lint": "eslint",
     "cap:init": "npx cap init \"VIP Istanbul Transfer\" com.vipistanbultransfer.app --web-dir out",
     "cap:add:android": "npx cap add android",

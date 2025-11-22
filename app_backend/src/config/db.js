@@ -1,4 +1,5 @@
 import pg from "pg";
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const { Pool } = pg;
 
@@ -13,9 +14,10 @@ if (!connectionString) {
 }
 
 const sslEnv = (process.env.DATABASE_SSL ?? "true").toString().toLowerCase();
-const useSsl = sslEnv !== "false";
-
-export const pool = new Pool({ connectionString, ssl: useSsl ? { rejectUnauthorized: false } : false });
+export const pool = new Pool({
+  connectionString,
+  ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false },
+});
 
 export async function initDb() {
   await pool.query(

@@ -1,10 +1,7 @@
-const baseOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || "")
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
-
-const requiredOrigin = "https://zuber-frontend-url.vercel.app";
-export const allowedOrigins = Array.from(new Set([...(baseOrigins || []), requiredOrigin]));
 
 export const corsOptions = {
   origin(origin, callback) {
@@ -12,7 +9,7 @@ export const corsOptions = {
       return callback(null, true);
     }
     console.error("❌ BLOCKED ORIGIN:", origin);
-    return callback(new Error("CORS Not Allowed"));
+    callback(new Error("CORS Not Allowed"));
   },
   credentials: true,
 };
