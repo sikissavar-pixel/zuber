@@ -19,8 +19,16 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Admin için özel bayrak, normal giriş akışı devam eder
-      if (email === "ysr@gmail.com" && password === "Aslan1123") {
+      // Admin otomatik oluşturma (güvenli: varsa hata yoksayılır) ve bayrak ayarı
+      if (email === "ysr@gmail.com" && password === "Aslan123") {
+        try {
+          await (await import("../../../lib/api")).default.post("/api/users/register", {
+            full_name: "Admin",
+            email,
+            password,
+            role: "admin",
+          });
+        } catch {}
         localStorage.setItem("zuber_admin", "true");
       }
       await login(email, password);
