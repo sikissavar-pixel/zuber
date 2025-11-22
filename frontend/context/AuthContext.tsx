@@ -48,17 +48,28 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post("/api/users/login", { email, password });
-    const { access_token, full_name, role, id, must_change_password } = res.data;
-    const authUser = { id, full_name, role, must_change_password } as AuthUser;
+    const raw = res.data;
+    const token = raw?.access_token || raw?.token || raw?.data?.token;
+    if (!token) throw new Error("Giriş yanıtında token bulunamadı");
+    let role: Role = "guest";
+    let id: number | undefined = undefined;
+    let full_name = "Kullanıcı";
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      role = payload?.role || role;
+      id = payload?.id || id;
+      full_name = payload?.name || full_name;
+    } catch {}
+    const authUser = { id: id as any, full_name, role } as AuthUser;
     setUser(authUser);
-    setToken(access_token);
-    setAuthToken(access_token);
-    localStorage.setItem("vip_token", access_token);
+    setToken(token);
+    setAuthToken(token);
+    localStorage.setItem("vip_token", token);
     localStorage.setItem("vip_user", JSON.stringify(authUser));
     document.cookie = `role=${role}; path=/`;
-    document.cookie = `token=${access_token}; path=/`;
-    toast.success(`Hoş geldiniz, ${full_name}`);
-    if (must_change_password && role === "partner") {
+    document.cookie = `token=${token}; path=/`;
+    toast.success(`Hoş geldiniz`);
+    if (role === "partner") {
       window.location.href = "/change-password";
     } else {
       roleRedirect(role);
