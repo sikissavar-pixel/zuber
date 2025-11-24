@@ -6,7 +6,10 @@ export function getSocket() {
   if (socket) return socket;
   
   // Use Railway backend URL for socket connection
-  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  let base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  // Remove trailing slash to ensure clean URL
+  base = base.endsWith("/") ? base.slice(0, -1) : base;
+  
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || base;
   const socketPath = process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io";
 

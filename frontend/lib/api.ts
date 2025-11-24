@@ -2,7 +2,11 @@ import axios from "axios";
 
 // ⚠️ IMPORTANT: baseURL must point to Railway backend in production
 // Vercel env: NEXT_PUBLIC_API_URL=https://zuber-backend-production-071e.up.railway.app
-const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+let rawURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Remove trailing slash to prevent https://domain.app/api/... duplication
+// This ensures proper URL construction: baseURL + "/api/..." = "https://domain.app/api/..."
+const baseURL = rawURL.endsWith("/") ? rawURL.slice(0, -1) : rawURL;
 
 // Warn if env variable is missing in browser (client-side)
 if (typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL) {
