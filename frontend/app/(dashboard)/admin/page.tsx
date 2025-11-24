@@ -15,6 +15,7 @@ import { useSearchParams } from "next/navigation";
 import MobileTabBar from "../../../components/mobile/MobileTabBar";
 import { motion, AnimatePresence } from "framer-motion";
 import MobileAppBridge from "../../../components/mobile/MobileAppBridge";
+import ApplicationCard from "../../../components/admin/ApplicationCard";
 
 const containerStyle = { width: "100%", height: "500px" } as const;
 const center = { lat: 41.0082, lng: 28.9784 } as const; // Istanbul
@@ -255,75 +256,56 @@ function AdminDashboardContent() {
 
         {/* Başvurular: Partner + Sürücü */}
         {tab === "applications" && (
-          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }}>
-          <Card className="bg-black/40 backdrop-blur-lg border border-yellow-800/30 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="font-cinzel text-yellow-400">Başvurular</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table className="bg-black/70 border border-yellow-500/30 text-yellow-300 rounded-xl shadow-[0_0_25px_#facc15]/20">
-                <THead>
-                  <TR>
-                    <TH>#</TH>
-                    <TH>Tür</TH>
-                    <TH>Ad</TH>
-                    <TH>İletişim</TH>
-                    <TH>Detay</TH>
-                    <TH>Şehir</TH>
-                    <TH>Aksiyon</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {[...partnerApps.map((p: any) => ({...p, __type: "partner"})), ...driverApps.map((d: any) => ({...d, __type: "driver"}))].map((row: any) => (
-                    <TR key={row.id}>
-                      <TD>#{row.id}</TD>
-                      <TD>{row.__type === "partner" ? "Partner" : "Sürücü"}</TD>
-                      <TD>{row.__type === "partner" ? row.name : row.full_name}</TD>
-                      <TD>
-                        <div className="text-xs text-zinc-300">
-                          {row.__type === "partner" ? (
-                            <>
-                              {row.contact_email && <div>E-posta: {row.contact_email}</div>}
-                              {row.contact_phone && <div>Telefon: {row.contact_phone}</div>}
-                            </>
-                          ) : (
-                            <>
-                              {row.email && <div>E-posta: {row.email}</div>}
-                              {row.phone && <div>Telefon: {row.phone}</div>}
-                            </>
-                          )}
-                        </div>
-                      </TD>
-                      <TD>{row.__type === "partner" ? (row.contact_full_name || "-") : `Ehliyet: ${row.license_no || '-'}`}</TD>
-                      <TD>{row.city}</TD>
-                      <TD>
-                        <div className="flex gap-2">
-                          {row.__type === "partner" ? (
-                            <>
-                              <Button onClick={() => approvePartner.mutate(row.id)}>Onayla</Button>
-                              <Button variant="secondary" onClick={() => rejectPartner.mutate(row.id)}>Reddet</Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button onClick={async () => {
-                                try {
-                                  const res: any = await approveDriver.mutateAsync(row.id);
-                                  if (res?.temporary_password) {
-                                    setTempModal({ open: true, password: res.temporary_password });
-                                  }
-                                } catch (e) {}
-                              }}>Onayla</Button>
-                              <Button variant="secondary" onClick={() => rejectDriver.mutate(row.id)}>Reddet</Button>
-                            </>
-                          )}
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }} className="space-y-4">
+             <div className="flex items-center justify-between mb-4 px-2">
+                <h2 className="font-cinzel text-2xl text-yellow-400">Bekleyen Başvurular</h2>
+                <div className="text-sm text-zinc-400 bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800">
+                   Toplam: {partnerApps.length + driverApps.length}
+                </div>
+             </div>
+             
+             {partnerApps.length === 0 && driverApps.length === 0 && (
+                <div className="text-center py-16 text-zinc-500 bg-zinc-900/20 rounded-xl border border-zinc-800 border-dashed backdrop-blur-sm">
+                   Bekleyen başvuru bulunmamaktadır.
+                </div>
+             )}
+
+             <div className="grid gap-1">
+                {partnerApps.map((p: any) => (
+                   <ApplicationCard 
+                      key={`partner-${p.id}`} 
+                      data={p} 
+                      type="partner" 
+                      isApplication={true}
+                      onApprove={async (id) => {
+                          try {
+                              const res: any = await approvePartner.mutateAsync(id);
+                              if (res?.temporary_password) {
+                                  setTempModal({ open: true, password: res.temporary_password });
+                              }
+                          } catch (e) {}
+                      }}
+                      onReject={(id) => rejectPartner.mutate(id)}
+                   />
+                ))}
+                {driverApps.map((d: any) => (
+                   <ApplicationCard 
+                      key={`driver-${d.id}`} 
+                      data={d} 
+                      type="driver" 
+                      isApplication={true}
+                      onApprove={async (id) => {
+                          try {
+                              const res: any = await approveDriver.mutateAsync(id);
+                              if (res?.temporary_password) {
+                                  setTempModal({ open: true, password: res.temporary_password });
+                              }
+                          } catch (e) {}
+                      }}
+                      onReject={(id) => rejectDriver.mutate(id)}
+                   />
+                ))}
+             </div>
           </motion.div>
         )}
 
@@ -331,49 +313,39 @@ function AdminDashboardContent() {
 
         {/* Partnerler */}
         {tab === "partners" && (
-          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }}>
-          <Card className="bg-black/40 backdrop-blur-lg border border-yellow-800/30 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="font-cinzel text-yellow-400">Partnerler</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table className="bg-black/70 border border-yellow-500/30 text-yellow-300 rounded-xl shadow-[0_0_25px_#facc15]/20">
-                <THead>
-                  <TR>
-                    <TH>#</TH>
-                    <TH>Ad</TH>
-                    <TH>İletişim</TH>
-                    <TH>Aksiyon</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {partners.map((p) => (
-                    <TR key={p.id} className="hover:bg-yellow-500/20 transition-all duration-300 ease-in-out">
-                      <TD>#{p.id}</TD>
-                      <TD>{p.name}</TD>
-                      <TD>
-                        <div className="text-xs text-zinc-300">
-                          {p.contact_email && <div>E-posta: {p.contact_email}</div>}
-                          {p.contact_phone && <div>Telefon: {p.contact_phone}</div>}
-                        </div>
-                      </TD>
-                      <TD>
-                        <Button variant="secondary" onClick={async () => {
+          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }} className="space-y-4">
+             <div className="flex items-center justify-between mb-4 px-2">
+                <h2 className="font-cinzel text-2xl text-yellow-400">Aktif Partnerler</h2>
+                <div className="text-sm text-zinc-400 bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800">
+                   Toplam: {partners.length}
+                </div>
+             </div>
+
+             {partners.length === 0 && (
+                <div className="text-center py-16 text-zinc-500 bg-zinc-900/20 rounded-xl border border-zinc-800 border-dashed backdrop-blur-sm">
+                   Aktif partner bulunmamaktadır.
+                </div>
+             )}
+
+             <div className="grid gap-1">
+                {partners.map((p: any) => (
+                   <ApplicationCard 
+                      key={`active-partner-${p.id}`} 
+                      data={p} 
+                      type="partner" 
+                      isApplication={false}
+                      onDelete={async (id) => {
                           if (!confirm(`Bu partner silinecek: ${p.name}. Emin misiniz?`)) return;
                           try {
-                            await api.delete(`/api/partners/${p.id}`);
-                            await qc.invalidateQueries({ queryKey: ["partners"] });
+                              await api.delete(`/api/partners/${id}`);
+                              await qc.invalidateQueries({ queryKey: ["partners"] });
                           } catch (e: any) {
-                            alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
+                              alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
                           }
-                        }}>Sil</Button>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            </CardContent>
-          </Card>
+                      }}
+                   />
+                ))}
+             </div>
           </motion.div>
         )}
 
@@ -400,64 +372,35 @@ function AdminDashboardContent() {
               </CardContent>
             </Card>
 
-            <Card className="bg-black/40 backdrop-blur-lg border border-yellow-800/30 rounded-2xl">
-              <CardHeader>
-                <CardTitle className="font-cinzel text-yellow-400">Aktif Sürücüler</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table className="bg-black/70 border border-yellow-500/30 text-yellow-300 rounded-xl shadow-[0_0_25px_#facc15]/20">
-                  <THead>
-                    <TR>
-                      <TH>#</TH>
-                      <TH>Ad Soyad</TH>
-                      <TH>İletişim</TH>
-                      <TH>Araç</TH>
-                      <TH>Konum</TH>
-                      <TH>Aksiyon</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {drivers.map((d) => (
-                      <TR key={d.id} className="hover:bg-yellow-500/20 transition-all duration-300 ease-in-out">
-                        <TD>#{d.id}</TD>
-                        <TD>{d.full_name}</TD>
-                        <TD>
-                          <div className="text-xs text-zinc-300">
-                            {d.email && <div>E-posta: {d.email}</div>}
-                            {d.contact_phone && <div>Telefon: {d.contact_phone}</div>}
-                          </div>
-                        </TD>
-                        <TD>
-                          <div className="text-xs text-zinc-300">
-                            {d.vehicle_plate && <div>Plaka: {d.vehicle_plate}</div>}
-                            {d.vehicle_model && <div>Model: {d.vehicle_model}</div>}
-                          </div>
-                        </TD>
-                        <TD>
-                          {locations[String(d.id)] ? (
-                            <span className="text-xs text-yellow-400">{locations[String(d.id)].lat.toFixed(4)}, {locations[String(d.id)].lng.toFixed(4)}</span>
-                          ) : (
-                            <span className="text-xs text-zinc-500">Konum yok</span>
-                          )}
-                        </TD>
-                        <TD>
-                          <Button variant="secondary" onClick={async () => {
+            <div className="space-y-4">
+               <div className="flex items-center justify-between mb-4 px-2">
+                  <h2 className="font-cinzel text-2xl text-yellow-400">Aktif Sürücüler</h2>
+                  <div className="text-sm text-zinc-400 bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800">
+                     Toplam: {drivers.length}
+                  </div>
+               </div>
+
+               <div className="grid gap-1">
+                  {drivers.map((d: any) => (
+                     <ApplicationCard 
+                        key={`active-driver-${d.id}`} 
+                        data={d} 
+                        type="driver" 
+                        isApplication={false}
+                        onDelete={async (id) => {
                             if (!confirm(`Bu sürücü silinecek: ${d.full_name}. Emin misiniz?`)) return;
                             try {
-                              await api.delete(`/api/admin/drivers/${d.id}`);
-                              await qc.invalidateQueries({ queryKey: ["drivers"] });
-                              await qc.invalidateQueries({ queryKey: ["reservations", "admin"] });
+                                await api.delete(`/api/admin/drivers/${id}`);
+                                await qc.invalidateQueries({ queryKey: ["drivers"] });
+                                await qc.invalidateQueries({ queryKey: ["reservations", "admin"] });
                             } catch (e: any) {
-                              alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
+                                alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
                             }
-                          }}>Sil</Button>
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
-              </CardContent>
-            </Card>
+                        }}
+                     />
+                  ))}
+               </div>
+            </div>
           </motion.div>
         )}
 
