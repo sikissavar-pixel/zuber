@@ -8,7 +8,9 @@ import { getSocket } from "@/lib/socket";
 export default function PartnerDashboardPage() {
   return (
     <ProtectedRoute allowedRoles={["partner"]}>
-      <Inner />
+      <div className="bg-black min-h-screen text-[#E9E9E9] font-inter">
+        <Inner />
+      </div>
     </ProtectedRoute>
   );
 }
@@ -34,7 +36,6 @@ function Inner() {
   }, []);
 
   const monthly = useMemo(() => {
-    // Basic income aggregation by month from reservations
     const map: Record<string, number> = {};
     (reservations || []).forEach((r) => {
       const d = new Date(r.pickup_time || r.created_at || Date.now());
@@ -49,73 +50,108 @@ function Inner() {
   const lastThree = useMemo(() => (reservations || []).slice(0,3), [reservations]);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-yellow-400">Hoş geldin{user?.full_name ? `, ${user.full_name}` : ""}</h1>
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <Card title="Aylık Gelir">
-          <IncomeChart data={monthly} />
-        </Card>
-        <Card title="Son 3 Rezervasyon" className="xl:col-span-1">
-          <div className="space-y-3">
-            {lastThree.length === 0 && <div className="text-yellow-200">Kayıt bulunmuyor.</div>}
+    <div className="container pt-20 pb-16 md:pt-24 md:pb-24 space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-yellow-500/20 pb-6">
+        <div>
+          <h1 className="font-cinzel text-3xl md:text-4xl text-yellow-400 title-glow mb-2">
+            Partner Paneli
+          </h1>
+          <p className="text-zinc-400 text-sm">
+            Hoş geldin, <span className="text-yellow-200 font-medium">{user?.full_name}</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Income Chart */}
+        <div className="vip-card p-6 lg:col-span-2">
+          <h3 className="font-cinzel text-xl text-yellow-400 mb-6 flex items-center gap-2">
+            <span>📊</span> Aylık Gelir
+          </h3>
+          <div className="h-64 w-full flex items-end justify-around gap-2 p-4 bg-black/40 rounded-lg border border-yellow-900/20">
+             <IncomeChart data={monthly} />
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="vip-card p-6">
+          <h3 className="font-cinzel text-xl text-yellow-400 mb-6 flex items-center gap-2">
+            <span>🔔</span> Bildirimler
+          </h3>
+          <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+            {events.length === 0 && <div className="text-zinc-500 text-sm text-center py-8">Yeni bildirim yok.</div>}
+            {events.map((e, i) => (
+              <div key={i} className="flex items-start justify-between p-3 rounded-lg bg-zinc-900/50 border border-yellow-500/10 hover:border-yellow-500/30 transition-colors">
+                <div className="text-zinc-200 text-sm font-medium pr-2">{e.message}</div>
+                <div className="text-yellow-600 text-[10px] whitespace-nowrap">{new Date(e.ts).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Reservations */}
+        <div className="vip-card p-6 lg:col-span-3">
+          <h3 className="font-cinzel text-xl text-yellow-400 mb-6 flex items-center gap-2">
+            <span>🗓️</span> Son Rezervasyonlar
+          </h3>
+          <div className="grid gap-4">
+            {lastThree.length === 0 && <div className="text-zinc-500 text-center py-8">Henüz rezervasyon kaydı bulunmuyor.</div>}
             {lastThree.map((r) => (
-              <div key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60">
-                <div>
-                  <div className="text-yellow-300 text-sm">#{r.id} • {new Date(r.pickup_time || r.created_at || Date.now()).toLocaleDateString()}</div>
-                  <div className="text-yellow-100 text-xs">{r.pickup_location} → {r.dropoff_location}</div>
+              <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-zinc-900/40 border border-yellow-500/10 hover:bg-zinc-900/60 transition-all gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 font-bold text-xs border border-yellow-500/20">
+                    #{r.id}
+                  </div>
+                  <div>
+                    <div className="text-zinc-200 font-medium text-sm md:text-base">{r.pickup_location} <span className="text-yellow-500 px-1">➔</span> {r.dropoff_location}</div>
+                    <div className="text-zinc-500 text-xs mt-1">{new Date(r.pickup_time || r.created_at || Date.now()).toLocaleString('tr-TR')}</div>
+                  </div>
                 </div>
                 <StatusBadge status={r.status} />
               </div>
             ))}
           </div>
-        </Card>
-        <Card title="Bildirim Özeti" className="xl:col-span-1">
-          <div className="space-y-2">
-            {events.length === 0 && <div className="text-yellow-200">Son bildirim bulunmuyor.</div>}
-            {events.map((e, i) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/60">
-                <div className="text-yellow-200 text-sm">{e.message}</div>
-                <div className="text-yellow-500 text-xs">{new Date(e.ts).toLocaleTimeString()}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
 }
 
-function Card({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
+function StatusBadge({ status }: { status: Reservation["status"] }) {
+  const map: Record<string, { label: string, color: string }> = {
+    pending: { label: "Bekliyor", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
+    assigned: { label: "Atandı", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+    accepted: { label: "Onaylandı", color: "bg-green-500/20 text-green-400 border-green-500/30" },
+    started: { label: "Yolda", color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+    arrived: { label: "Varışta", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30" },
+    qr_pending: { label: "QR Bekleniyor", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+    completed: { label: "Tamamlandı", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  };
+  const conf = map[status] || { label: status, color: "bg-zinc-800 text-zinc-400 border-zinc-700" };
   return (
-    <div className={`p-6 rounded-2xl bg-black/60 backdrop-blur border border-yellow-500/40 shadow-[0_0_30px_rgba(234,179,8,0.25)] ${className}`}>
-      <div className="text-yellow-400 font-semibold mb-4">{title}</div>
-      {children}
-    </div>
+    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${conf.color}`}>
+      {conf.label}
+    </span>
   );
 }
 
-function StatusBadge({ status }: { status: Reservation["status"] }) {
-  const map: Record<string, string> = {
-    pending: "🟡 Bekliyor",
-    assigned: "🟢 Atandı",
-    accepted: "🟢 Onaylandı",
-    started: "🚗 Yola Çıkıldı",
-    arrived: "📍 Varışta",
-    qr_pending: "🔶 QR Bekleniyor",
-    completed: "🔵 Tamamlandı",
-  };
-  return <span className="text-sm">{map[status] || status}</span>;
-}
-
 function IncomeChart({ data }: { data: { label: string; value: number }[] }) {
-  if (data.length === 0) return <div className="text-yellow-200">Veri yok</div>;
+  if (data.length === 0) return <div className="text-zinc-500 w-full h-full flex items-center justify-center">Veri yok</div>;
   const max = Math.max(...data.map((d) => d.value)) || 1;
   return (
-    <div className="flex items-end gap-3 h-40">
+    <div className="w-full h-full flex items-end justify-around gap-2">
       {data.map((d) => (
-        <div key={d.label} className="flex flex-col items-center w-12">
-          <div className="w-full rounded-t-xl bg-yellow-500" style={{ height: `${Math.round((d.value / max) * 140)}px`, boxShadow: "0 0 20px rgba(234,179,8,0.4)" }} />
-          <div className="mt-2 text-[10px] text-yellow-300">{d.label}</div>
+        <div key={d.label} className="flex flex-col items-center w-full max-w-[60px] group cursor-pointer">
+          <div className="relative w-full flex items-end justify-center h-[180px]">
+             <div 
+               className="w-full mx-1 rounded-t bg-gradient-to-t from-yellow-600 to-yellow-400 opacity-80 group-hover:opacity-100 transition-all shadow-[0_0_15px_rgba(234,179,8,0.2)]" 
+               style={{ height: `${Math.max(10, Math.round((d.value / max) * 100))}%` }} 
+             />
+             <div className="absolute -top-8 bg-zinc-800 text-yellow-400 text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-yellow-500/20 whitespace-nowrap z-10">
+               {d.value}₺
+             </div>
+          </div>
+          <div className="mt-3 text-[10px] text-zinc-400 font-mono border-t border-zinc-800 w-full text-center pt-1">{d.label}</div>
         </div>
       ))}
     </div>

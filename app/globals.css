@@ -1,46 +1,41 @@
 @import "tailwindcss";
 
-/* Global layout baseline to prevent horizontal scroll */
+/* Global layout baseline */
 html, body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden !important;
-  overflow-y: auto;
+  overflow-x: hidden;
   background-color: #000;
+  color: #E9E9E9;
   width: 100%;
   height: 100%;
-  box-sizing: border-box;
 }
 
-/* Smooth scroll for in-page navigation */
 html { scroll-behavior: smooth; }
 
-/* Clamp common sections to avoid overflow from glows/animations */
-.hero, .glow-bg, .container {
-  max-width: 100% !important;
-  overflow: hidden !important;
+/* Standard container override */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
+@media (min-width: 640px) { .container { max-width: 640px; } }
+@media (min-width: 768px) { .container { max-width: 768px; } }
+@media (min-width: 1024px) { .container { max-width: 1024px; } }
+@media (min-width: 1280px) { .container { max-width: 1280px; } }
+@media (min-width: 1536px) { .container { max-width: 1536px; } }
 
-/* Animated glow wrapper helper */
-.animated-glow {
-  filter: drop-shadow(0 0 20px rgba(255, 200, 50, 0.3));
-  overflow: hidden;
-}
-
-/* Hide scrollbars globally (modern approach) */
-/* Chrome, Edge, Safari */
+/* Hide scrollbars */
 ::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
-/* Firefox */
 * { scrollbar-width: none !important; }
 
 :root {
-  /* Zuber Gold 2025 palette */
-  --background: linear-gradient(180deg, #000000 0%, #0B0B0B 100%);
-  --foreground: #E9E9E9; /* main text */
-  --gold: #FFD54F; /* main gold */
-  --gold-muted: #FFCA28; /* accent gold for hover/borders */
-  --card: #121212;
-  --border: #1f1f1f;
+  --background: #000000;
+  --foreground: #E9E9E9;
+  --gold: #FFD54F;
+  --gold-muted: #FFCA28;
 }
 
 @theme inline {
@@ -49,72 +44,34 @@ html { scroll-behavior: smooth; }
   --font-sans: var(--font-inter);
   --font-display: var(--font-cinzel);
   --color-gold: var(--gold);
-  --color-gold-muted: var(--gold-muted);
-  --color-card: var(--card);
-  --color-border: var(--border);
-  /* Mobile-first breakpoints tuned for Android devices */
-  --breakpoint-sm: 360px;
-  --breakpoint-md: 768px;
-  --breakpoint-lg: 1024px;
-  --breakpoint-xl: 1280px;
 }
-
-/* Always dark theme for luxury feel */
-/* If you want system-aware, uncomment below and adjust defaults above */
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b0b0b;
-    --foreground: #f5f3e8;
-  }
-} */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
-  overflow-x: hidden;
+  font-family: var(--font-inter), sans-serif;
 }
 
-.gold-gradient {
-  /* Deep gold gradient */
-  background-image: linear-gradient(90deg, #FFD54F 0%, #FFC107 50%, #FFB300 100%);
+/* Standard VIP Card Style */
+.vip-card {
+  @apply rounded-xl bg-black/30 backdrop-blur-xl border border-yellow-600/40 shadow-[0_0_20px_rgba(255,215,0,0.15)];
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.card {
-  background-color: rgba(18, 18, 18, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 202, 40, 0.22);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: transform 180ms ease, box-shadow 200ms ease, border-color 200ms ease;
+.vip-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.25);
+  @apply border-yellow-500/60;
 }
 
-.card:hover {
-  transform: scale(1.02);
-  border-color: rgba(255, 202, 40, 0.35);
-  box-shadow: 0 18px 50px rgba(255, 202, 40, 0.12), 0 12px 42px rgba(0,0,0,0.55);
+/* Typography */
+.font-cinzel { font-family: var(--font-cinzel), serif; }
+.font-inter { font-family: var(--font-inter), sans-serif; }
+
+/* Gold Text Glow */
+.title-glow {
+  text-shadow: 0 0 20px rgba(255, 213, 79, 0.3);
 }
 
-.soft-border {
-  border: 1px solid rgba(255, 202, 40, 0.28);
-}
-
-/* Cinematic radial background */
-.vip-radial {
-  background: radial-gradient(ellipse at center, #0b0b0b, #000);
-}
-
-/* Removed animated halo background to prevent overflow and motion */
-
-/* Glass blur helper */
-.glass {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background-color: rgba(18, 18, 18, 0.6);
-}
-
-/* Golden shimmer hover for premium CTA */
+/* Button Shimmer */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -126,16 +83,6 @@ body {
 }
 .btn-shimmer:hover {
   animation: shimmer 1.5s linear infinite;
-}
-
-/* Gold pulse for titles */
-.title-glow {
-  animation: goldPulse 3.2s ease-in-out infinite;
-}
-@keyframes goldPulse {
-  0% { text-shadow: 0 0 8px rgba(255,213,79,0.25); }
-  50% { text-shadow: 0 0 16px rgba(255,213,79,0.45); }
-  100% { text-shadow: 0 0 8px rgba(255,213,79,0.25); }
 }
 
 /* Golden underline link hover */
@@ -154,59 +101,4 @@ body {
 }
 .gold-underline:hover::after, .gold-underline.active::after {
   width: 100%;
-}
-
-/* Input focus gold glow helper */
-.gold-focus:focus {
-  outline: none;
-  border-color: #FFCA28 !important;
-  box-shadow: 0 0 0 4px rgba(255,202,40,0.18) inset, 0 0 14px rgba(255,202,40,0.24) !important;
-}
-
-/* Yellow glass boxes (sarı kutular) */
-.gold-glass {
-  background: rgba(255, 213, 79, 0.08);
-  border: 1px solid rgba(255, 213, 79, 0.3);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 0 25px rgba(255, 213, 79, 0.15);
-}
-.gold-glass:hover {
-  border-color: rgba(255, 202, 40, 0.38);
-  box-shadow: 0 0 32px rgba(255, 202, 40, 0.22);
-}
-
-/* Font helpers */
-.font-cinzel { font-family: var(--font-cinzel), serif; }
-.font-inter { font-family: var(--font-inter), system-ui, sans-serif; }
-
-/* Amber glow ring for hero title and cards (limited updates via steps) */
-@keyframes amberRotate {
-  0% { transform: rotate(0deg) scale(1); opacity: 0.45; }
-  50% { opacity: 0.25; }
-  100% { transform: rotate(360deg) scale(1.05); opacity: 0.45; }
-}
-
-.amber-ring {
-  position: absolute;
-  inset: -40px -20px -40px -20px;
-  border-radius: 9999px;
-  pointer-events: none;
-  background: linear-gradient(120deg, rgba(255,215,0,0.25), rgba(255,180,0,0.05));
-  filter: blur(40px);
-  box-shadow: 0 0 40px rgba(255,200,50,0.2);
-  animation: amberRotate 18s steps(30, end) infinite;
-}
-
-.amber-card-glow { position: relative; }
-.amber-card-glow::before {
-  content: "";
-  position: absolute;
-  inset: -30px -15px -30px -15px;
-  border-radius: 24px;
-  background: linear-gradient(120deg, rgba(255,215,0,0.25), rgba(255,180,0,0.05));
-  filter: blur(30px);
-  box-shadow: 0 0 40px rgba(255,200,50,0.2);
-  animation: amberRotate 22s steps(30, end) infinite;
-  pointer-events: none;
 }

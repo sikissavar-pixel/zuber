@@ -1,7 +1,7 @@
 FROM node:20-alpine
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci
+RUN if [ -f package-lock.json ]; then npm ci; else npm install --omit=dev; fi
 COPY frontend .
 ENV PORT=3000
 EXPOSE 3000
