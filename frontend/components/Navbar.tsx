@@ -44,46 +44,46 @@ export const Navbar = () => {
   return (
     <>
       <nav className="sticky top-0 z-40 border-b border-yellow-800/30 bg-black/70 backdrop-blur-md">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="flex h-14 items-center justify-between">
-          <Link href={pathname?.startsWith('/partner') ? '/partner/dashboard' : '/'} className="font-[var(--font-display)] text-xl text-[var(--gold)]" style={{ textShadow: "0 0 12px rgba(255,213,79,0.25)" }}>
-            {pathname?.startsWith('/partner') ? 'Zuber • Partner Paneli' : 'Zuber'}
+        <div className="container flex h-16 items-center justify-between">
+          <Link href={pathname?.startsWith('/partner') ? '/partner/dashboard' : '/'} className="font-[var(--font-display)] text-2xl text-[var(--gold)] tracking-wide" style={{ textShadow: "0 0 15px rgba(255,213,79,0.3)" }}>
+            {pathname?.startsWith('/partner') ? 'Zuber Partner' : 'Zuber'}
           </Link>
-          <div className="hidden gap-6 md:flex">
+          
+          <div className="hidden md:flex items-center gap-8">
             {links.map((l) => (
-              <Link key={l.href} href={l.href} className={cn("text-sm gold-underline", pathname === l.href ? "text-[var(--gold)] active" : "text-zinc-300 hover:text-[var(--gold)]")}>{l.label}</Link>
+              <Link key={l.href} href={l.href} className={cn("text-sm font-medium tracking-wide gold-underline py-1", pathname === l.href ? "text-[var(--gold)] active" : "text-zinc-300 hover:text-[var(--gold)]")}>{l.label}</Link>
             ))}
             {user?.role === "partner" && (
-              <Link href="/partner/dashboard" className={cn("text-sm gold-underline", pathname === "/partner/dashboard" ? "text-[var(--gold)] active" : "text-zinc-300 hover:text-[var(--gold)]")}>Partner Paneli</Link>
+              <Link href="/partner/dashboard" className={cn("text-sm font-medium tracking-wide gold-underline py-1", pathname === "/partner/dashboard" ? "text-[var(--gold)] active" : "text-zinc-300 hover:text-[var(--gold)]")}>Partner Paneli</Link>
             )}
             {user?.role === "admin" && (
-              <Link href="/admin" className={cn("text-sm gold-underline", pathname === "/admin" ? "text-[var(--gold)] active" : "text-zinc-300 hover:text-[var(--gold)]")}>Yönetim</Link>
+              <Link href="/admin" className={cn("text-sm font-medium tracking-wide gold-underline py-1", pathname === "/admin" ? "text-[var(--gold)] active" : "text-zinc-300 hover:text-[var(--gold)]")}>Yönetim</Link>
             )}
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-4">
             {user ? (
               <>
-                <span className={cn("text-sm", user.role === "partner" ? "text-yellow-400" : "text-zinc-400")}>{user.full_name} ({user.role})</span>
+                <span className={cn("text-sm font-medium hidden sm:inline-block", user.role === "partner" ? "text-yellow-400" : "text-zinc-400")}>{user.full_name}</span>
                 {user.role === "partner" && (
                   <button
                     onClick={() => setOpen(true)}
                     aria-label="Bildirimler"
-                    className={cn("relative text-xl", hasNew ? "animate-pulse text-yellow-400" : "text-zinc-300")}
+                    className={cn("relative p-2 hover:bg-white/5 rounded-full transition-colors", hasNew ? "text-yellow-400" : "text-zinc-400")}
                     title="Bildirimler"
                   >
-                    🔔
-                    {hasNew && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-yellow-500" />}
+                    <span className="text-xl">🔔</span>
+                    {hasNew && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />}
                   </button>
                 )}
-                <Button variant="secondary" onClick={logout}>Çıkış</Button>
+                <Button variant="secondary" onClick={logout} className="h-9 px-4 text-xs font-medium border-zinc-700 hover:bg-zinc-800">Çıkış</Button>
               </>
             ) : (
               <>
-                <Link href="/login"><Button variant="secondary">Giriş</Button></Link>
-                <Link href="/basvuru"><Button className="btn-shimmer">Başvuru Yap</Button></Link>
+                <Link href="/login"><Button variant="secondary" className="h-10 px-6 font-medium border-zinc-700 hover:border-yellow-500/50 hover:text-yellow-400 transition-all">Giriş</Button></Link>
+                <Link href="/basvuru"><Button className="btn-shimmer h-10 px-6 font-bold text-black shadow-lg">Başvuru Yap</Button></Link>
               </>
             )}
-          </div>
           </div>
         </div>
       </nav>
