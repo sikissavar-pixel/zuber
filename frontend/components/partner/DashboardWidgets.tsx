@@ -25,7 +25,7 @@ type PanelProps = {
   children: React.ReactNode;
 };
 
-const baseCard = `${THEME.cardBg} ${THEME.borderGlow} rounded-2xl p-6 h-full`;
+const baseCard = `${THEME.cardBg} ${THEME.borderGlow} rounded-xl p-6 h-full`;
 
 export function PartnerPanelCard({ title, icon, action, className = "", children }: PanelProps) {
   return (
@@ -59,7 +59,7 @@ export function PartnerIncomeChart({ data }: { data: ChartDatum[] }) {
   const max = Math.max(...data.map((d) => d.value)) || 1;
 
   return (
-    <div className="flex h-64 w-full items-end gap-3">
+    <div className="flex h-56 w-full items-end gap-4">
       {data.map((item) => {
         const height = Math.max(12, Math.round((item.value / max) * 100));
         return (
@@ -94,7 +94,7 @@ export function PartnerNotifications({ events }: { events: EventItem[] }) {
       {events.map((event, idx) => (
         <div
           key={`${event.ts}-${idx}`}
-          className="flex items-start justify-between rounded-xl border border-[#ffcc33]/10 bg-[#121212] p-4 text-sm transition hover:border-[#ffcc33]/40"
+          className={`flex items-start justify-between rounded-xl border border-[#ffb400]/20 bg-[#0f0f0f] p-5 text-sm transition hover:border-[#ffb400]/40`}
         >
           <div className="flex items-start gap-3">
             <div className="rounded-full border border-[#ffcc33]/30 bg-[#ffcc33]/10 p-2">
@@ -122,26 +122,26 @@ export function PartnerReservationList({ rows }: { rows: Reservation[] }) {
       {rows.map((reservation) => (
         <div
           key={reservation.id}
-          className="flex flex-col gap-4 rounded-2xl border border-[#ffcc33]/15 bg-[#101010] p-4 md:flex-row md:items-center md:justify-between"
+          className={`${THEME.cardBg} border border-[#ffb400]/20 rounded-xl p-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between`}
         >
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#ffcc33]/30 bg-[#ffcc33]/5 text-sm font-semibold text-[#ffcc33]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#ffb400]/30 bg-[#ffb400]/10 text-sm font-semibold text-[#ffb400]">
               #{reservation.id}
             </div>
             <div>
-              <div className={`${THEME.fontBody} text-base text-[#f5f5f5]`}>
+              <div className={`${THEME.fontBody} text-base ${THEME.textMain}`}>
                 {reservation.pickup_location}
-                <span className="px-2 text-[#ffcc33]">→</span>
+                <span className="px-2 text-[#ffb400]">→</span>
                 {reservation.dropoff_location}
               </div>
-              <div className="mt-1 flex items-center gap-2 text-xs text-[#888]">
+              <div className={`mt-1 flex items-center gap-2 text-xs ${THEME.textSecondary}`}>
                 <CalendarRange className="h-3.5 w-3.5" />
                 {new Date(reservation.pickup_time || reservation.created_at || Date.now()).toLocaleString("tr-TR")}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 rounded-full border border-[#ffcc33]/30 bg-[#ffcc33]/10 px-3 py-1 text-xs uppercase tracking-wide text-[#ffcc33]">
+            <span className="flex items-center gap-1 rounded-full border border-[#ffb400]/40 bg-[#ffb400]/10 px-3 py-1 text-xs uppercase tracking-wide text-[#ffb400]">
               <MapPin className="h-3.5 w-3.5" />
               {reservation.status?.replace("_", " ") || "Bilinmiyor"}
             </span>

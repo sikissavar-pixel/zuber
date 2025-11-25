@@ -57,8 +57,8 @@ function Shell({ children }: { children: React.ReactNode }) {
           ></button>
         )}
 
-        <div className="flex flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-yellow-500/20 bg-black/70 px-4 py-3 backdrop-blur">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-yellow-500/30 bg-black/60 px-4 py-2 text-sm text-yellow-100 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <button
                 className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-2 text-yellow-300 transition hover:bg-yellow-500/20 md:hidden"
@@ -69,8 +69,8 @@ function Shell({ children }: { children: React.ReactNode }) {
               </button>
               <div className="text-xs uppercase tracking-[0.4em] text-yellow-300/80">Partner Panel</div>
             </div>
-            <div className="flex items-center gap-6 text-sm text-yellow-100">
-              <div className="hidden md:flex flex-col text-right text-xs text-yellow-200/70">
+            <div className="flex items-center gap-6">
+              <div className="hidden flex-col text-right text-xs text-yellow-200/70 md:flex">
                 <span className="font-semibold text-yellow-100">{user?.full_name || "Partner"}</span>
                 <span>{time}</span>
               </div>
@@ -88,14 +88,12 @@ function Shell({ children }: { children: React.ReactNode }) {
                 Çıkış
               </button>
             </div>
-          </header>
-
-          <div className="flex-1 overflow-y-auto px-3 py-6 md:px-8 md:py-10">
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-              {children}
-            </motion.div>
           </div>
-        </div>
+          <div className="mb-4 h-1 rounded-xl bg-gradient-to-r from-yellow-700/20 to-transparent" />
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            {children}
+          </motion.div>
+        </main>
       </div>
     </div>
   );

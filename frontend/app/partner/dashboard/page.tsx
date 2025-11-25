@@ -21,7 +21,7 @@ export default function PartnerDashboardPage() {
   return (
     <ProtectedRoute allowedRoles={["partner"]}>
       <div className={`min-h-screen ${THEME.bg} text-white font-inter`}>
-        <div className="flex justify-center pb-16 pt-24 md:pt-28">
+        <div className="flex justify-center pb-16 pt-0">
           <Inner />
         </div>
       </div>
@@ -96,7 +96,7 @@ function Inner() {
   ];
 
   return (
-    <div className="dashboard-shell space-y-10">
+    <div className="dashboard-shell mt-32 space-y-8">
       <div className="space-y-2 text-center">
         <h1 className={`${THEME.fontHead} text-3xl md:text-5xl ${THEME.gold}`}>Hoş geldin, {user?.full_name || "Kullanıcı"}</h1>
         <p className={`${THEME.fontBody} ${THEME.textSecondary} text-sm uppercase tracking-[0.4em]`}>Zuber Partner Command</p>
