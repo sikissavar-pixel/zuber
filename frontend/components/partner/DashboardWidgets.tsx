@@ -25,7 +25,7 @@ type PanelProps = {
   children: React.ReactNode;
 };
 
-const baseCard = `${THEME.cardBg} ${THEME.borderGlow} rounded-xl p-6 h-full`;
+const baseCard = `${THEME.cardBg} ${THEME.borderGlow} rounded-xl p-5 sm:p-6`;
 
 export function PartnerPanelCard({ title, icon, action, className = "", children }: PanelProps) {
   return (
@@ -50,7 +50,7 @@ export function PartnerPanelCard({ title, icon, action, className = "", children
 export function PartnerIncomeChart({ data }: { data: ChartDatum[] }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-[#777]">
+      <div className="flex items-center justify-center py-12 text-sm text-[#777]">
         Son 6 aya ait veri bulunamadı.
       </div>
     );
@@ -84,7 +84,7 @@ export function PartnerIncomeChart({ data }: { data: ChartDatum[] }) {
 export function PartnerNotifications({ events }: { events: EventItem[] }) {
   if (events.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-[#777]">
+      <div className="flex items-center justify-center py-10 text-sm text-[#777]">
         Şu anda yeni bildirim yok.
       </div>
     );
@@ -112,7 +112,7 @@ export function PartnerNotifications({ events }: { events: EventItem[] }) {
 export function PartnerReservationList({ rows }: { rows: Reservation[] }) {
   if (rows.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-sm text-[#777]">
+      <div className="flex items-center justify-center py-12 text-sm text-[#777]">
         Henüz rezervasyon kaydı bulunmuyor.
       </div>
     );

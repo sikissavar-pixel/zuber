@@ -105,9 +105,24 @@ body {
 
 @layer utilities {
   .dashboard-shell {
-    @apply mx-auto w-full max-w-7xl px-4;
+    @apply w-full;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
   .dashboard-card {
     @apply rounded-xl border border-yellow-500/30 bg-[#0d0d0d] shadow-[0_0_25px_rgba(255,204,51,0.15)];
+  }
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+  @media (min-width: 768px) {
+    .dashboard-grid {
+      gap: 1.5rem;
+    }
   }
 }

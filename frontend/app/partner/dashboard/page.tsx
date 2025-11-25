@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyReservations } from "@/hooks/useReservations";
 import { getSocket } from "@/lib/socket";
@@ -18,18 +17,6 @@ const currency = new Intl.NumberFormat("tr-TR", {
 });
 
 export default function PartnerDashboardPage() {
-  return (
-    <ProtectedRoute allowedRoles={["partner"]}>
-      <div className={`min-h-screen ${THEME.bg} text-white font-inter`}>
-        <div className="flex justify-center pb-16 pt-0">
-          <Inner />
-        </div>
-      </div>
-    </ProtectedRoute>
-  );
-}
-
-function Inner() {
   const { user } = useAuth();
   const { data: reservations = [] } = useMyReservations();
   const [events, setEvents] = useState<EventEntry[]>([]);
@@ -96,31 +83,37 @@ function Inner() {
   ];
 
   return (
-    <div className="dashboard-shell mt-32 space-y-8">
-      <div className="space-y-2 text-center">
-        <h1 className={`${THEME.fontHead} text-3xl md:text-5xl ${THEME.gold}`}>Hoş geldin, {user?.full_name || "Kullanıcı"}</h1>
-        <p className={`${THEME.fontBody} ${THEME.textSecondary} text-sm uppercase tracking-[0.4em]`}>Zuber Partner Command</p>
+    <div className="flex justify-center pb-12 pt-4 text-white">
+      <div className="dashboard-shell space-y-10">
+        <div className="space-y-2 text-center">
+          <h1 className={`${THEME.fontHead} text-3xl md:text-5xl ${THEME.gold}`}>Hoş geldin, {user?.full_name || "Kullanıcı"}</h1>
+          <p className={`${THEME.fontBody} ${THEME.textSecondary} text-xs md:text-sm uppercase tracking-[0.4em]`}>
+            Zuber Partner Command
+          </p>
+        </div>
+
+        <div className="dashboard-grid gap-4">
+          {stats.map((stat) => (
+            <InfoCard key={stat.title} icon={stat.icon} title={stat.title} value={stat.value} subtext={stat.subtext} />
+          ))}
+        </div>
+
+        <div className="dashboard-grid gap-4">
+          <PartnerPanelCard title="Aylık Gelir" icon={<TrendingUp className="h-5 w-5" />} className="lg:col-span-2">
+            <PartnerIncomeChart data={monthly} />
+          </PartnerPanelCard>
+
+          <PartnerPanelCard title="Bildirimler" icon={<Bell className="h-5 w-5" />}>
+            <PartnerNotifications events={events} />
+          </PartnerPanelCard>
+        </div>
+
+        <div className="dashboard-grid gap-4">
+          <PartnerPanelCard title="Son Rezervasyonlar" icon={<Briefcase className="h-5 w-5" />} className="col-span-full">
+            <PartnerReservationList rows={lastThree} />
+          </PartnerPanelCard>
+        </div>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {stats.map((stat) => (
-          <InfoCard key={stat.title} icon={stat.icon} title={stat.title} value={stat.value} subtext={stat.subtext} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <PartnerPanelCard title="Aylık Gelir" icon={<TrendingUp className="h-5 w-5" />} className="lg:col-span-2">
-          <PartnerIncomeChart data={monthly} />
-        </PartnerPanelCard>
-
-        <PartnerPanelCard title="Bildirimler" icon={<Bell className="h-5 w-5" />} className="max-h-[420px] overflow-auto">
-          <PartnerNotifications events={events} />
-        </PartnerPanelCard>
-      </div>
-
-      <PartnerPanelCard title="Son Rezervasyonlar" icon={<Briefcase className="h-5 w-5" />}>
-        <PartnerReservationList rows={lastThree} />
-      </PartnerPanelCard>
     </div>
   );
 }
