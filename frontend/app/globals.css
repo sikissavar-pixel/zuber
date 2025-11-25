@@ -120,9 +120,27 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1rem;
   }
+  .dashboard-grid-mobile-scroll {
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(280px, 1fr);
+  }
+  .dashboard-grid-mobile-scroll > * {
+    scroll-snap-align: start;
+    min-width: 280px;
+  }
   @media (min-width: 768px) {
     .dashboard-grid {
       gap: 1.5rem;
+    }
+    .dashboard-grid-mobile-scroll {
+      overflow: visible;
+      grid-auto-flow: row;
+      grid-auto-columns: unset;
+    }
+    .dashboard-grid-mobile-scroll > * {
+      min-width: 0;
     }
   }
 }
