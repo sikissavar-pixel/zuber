@@ -5,40 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Car, Wallet, Clock, Bell, Inbox } from "lucide-react";
 import { getSocket } from "@/lib/socket";
 import type { Reservation } from "@/hooks/useReservations";
-
-// --- Design Constants ---
-const THEME = {
-  bg: "bg-[#000]",
-  cardBg: "bg-[#0d0d0d]",
-  textMain: "text-[#f5f5f5]",
-  textSecondary: "text-[#888]",
-  gold: "text-[#ffcc33]",
-  goldDark: "text-[#ffb400]",
-  borderGlow: "border border-[#ffb400]/30 shadow-[0_0_15px_rgba(255,180,0,0.15)]",
-  fontHead: "font-cinzel",
-  fontBody: "font-inter",
-};
-
-// --- Components ---
-
-const InfoCard = ({ icon: Icon, title, value, subtext }: { icon: any, title: string, value?: string, subtext?: string }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 10 }} 
-    animate={{ opacity: 1, y: 0 }} 
-    className={`${THEME.cardBg} ${THEME.borderGlow} rounded-xl p-6 flex flex-col justify-between h-full hover:shadow-[0_0_25px_rgba(255,180,0,0.25)] transition-all duration-300`}
-  >
-    <div className="flex items-start justify-between mb-4">
-      <div className={`p-3 rounded-full bg-[#ffb400]/10 ${THEME.gold}`}>
-        <Icon className="w-6 h-6" />
-      </div>
-      {value && <div className={`${THEME.fontHead} text-2xl ${THEME.gold}`}>{value}</div>}
-    </div>
-    <div>
-      <h3 className={`${THEME.fontHead} text-lg ${THEME.textMain} mb-1`}>{title}</h3>
-      {subtext && <p className={`${THEME.fontBody} text-sm ${THEME.textSecondary}`}>{subtext}</p>}
-    </div>
-  </motion.div>
-);
+import { DASHBOARD_THEME as THEME } from "@/components/dashboard/theme";
+import { InfoCard } from "@/components/dashboard/InfoCard";
 
 const EmptyState = () => (
   <motion.div 
@@ -68,12 +36,12 @@ const ReservationCard = ({ r, onAccept }: { r: Reservation, onAccept: (id: numbe
         <span className={`${THEME.fontHead} ${THEME.textMain} text-lg`}>{r.guest_name || "Misafir"}</span>
       </div>
       <div className="space-y-1">
-        <div className="flex items-center gap-2 text-sm ${THEME.textSecondary}">
+        <div className={`flex items-center gap-2 text-sm ${THEME.textSecondary}`}>
           <div className="w-2 h-2 rounded-full bg-[#ffb400]" />
           <span className={THEME.textMain}>{r.pickup_location}</span>
         </div>
         <div className="pl-1 ml-px border-l border-[#333] h-3" />
-        <div className="flex items-center gap-2 text-sm ${THEME.textSecondary}">
+        <div className={`flex items-center gap-2 text-sm ${THEME.textSecondary}`}>
           <div className="w-2 h-2 rounded-full border border-[#ffb400]" />
           <span className={THEME.textMain}>{r.dropoff_location}</span>
         </div>
