@@ -74,9 +74,8 @@ export default function PartnerWalletPage() {
     <ProtectedRoute allowedRoles={["partner"]}>
       <main className="min-h-screen bg-gradient-to-b from-[#050402] via-[#070606] to-[#000] text-white py-10">
         <div className="dashboard-shell space-y-10">
-          <div className="space-y-2 text-center">
-            <p className="text-xs uppercase tracking-[0.4em] text-yellow-500/80">VIP Wallet Command</p>
-            <h1 className="text-3xl md:text-4xl font-[var(--font-display)] text-yellow-300 title-glow">Partner Cüzdanı</h1>
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-[var(--font-display)] text-[#ffcc33]">Partner Cüzdanı</h1>
             <p className="text-sm text-zinc-400">Canlı rezervasyon akışı için minimum {MIN_REQUIRED_AMOUNT} ₺ bakiye önerilir.</p>
           </div>
 
