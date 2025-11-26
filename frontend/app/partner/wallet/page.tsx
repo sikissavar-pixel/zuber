@@ -60,7 +60,7 @@ export default function PartnerWalletPage() {
     if (topUpLoading) return;
     try {
       setTopUpLoading(true);
-      await api.patch("/api/wallet/add-test-balance", { amount: 500 });
+      await api.post("/api/wallet/add-test-balance", { amount: 500 });
       await fetchWallet();
       toast.success("500 ₺ başarıyla eklendi.");
     } catch (e: any) {
