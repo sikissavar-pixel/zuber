@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import { useAuth } from "@/hooks/useAuth";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMyReservations } from "@/hooks/useReservations";
 import { getSocket } from "@/lib/socket";
 import { DASHBOARD_THEME as THEME } from "@/components/dashboard/theme";
@@ -17,22 +16,16 @@ const currency = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 0,
 });
 
-export default function PartnerDashboardPage() {
-  return (
-    <ProtectedRoute allowedRoles={["partner"]}>
-      <div className={`min-h-screen ${THEME.bg} text-white font-inter`}>
-        <div className="flex justify-center pb-16 pt-0">
-          <Inner />
-        </div>
-      </div>
-    </ProtectedRoute>
-  );
-}
+type DetailSection = "monthly" | "notifications" | "reservations";
 
-function Inner() {
-  const { user } = useAuth();
+export default function PartnerDashboardPage() {
   const { data: reservations = [] } = useMyReservations();
   const [events, setEvents] = useState<EventEntry[]>([]);
+  const [openDetails, setOpenDetails] = useState<Record<DetailSection, boolean>>({
+    monthly: false,
+    notifications: false,
+    reservations: false,
+  });
 
   useEffect(() => {
     const socket = getSocket();
@@ -88,6 +81,30 @@ function Inner() {
 
   const lastThree = useMemo(() => reservations.slice(0, 3), [reservations]);
 
+  const detailCards = [
+    {
+      key: "monthly" as DetailSection,
+      title: "Aylık Gelir",
+      value: currency.format(totals.monthRevenue),
+      subtitle: "Son 6 aylık performans",
+      icon: <TrendingUp className="h-5 w-5 text-[#ffcc33]" />,
+    },
+    {
+      key: "notifications" as DetailSection,
+      title: "Bildirimler",
+      value: `${events.length} güncel`,
+      subtitle: "Son 5 sistem uyarısı",
+      icon: <Bell className="h-5 w-5 text-[#ffcc33]" />,
+    },
+    {
+      key: "reservations" as DetailSection,
+      title: "Son Rezervasyonlar",
+      value: `${lastThree.length} kayıt`,
+      subtitle: "En yeni talepler",
+      icon: <Briefcase className="h-5 w-5 text-[#ffcc33]" />,
+    },
+  ];
+
   const stats = [
     { icon: Wallet, title: "Toplam Gelir", value: currency.format(totals.totalAmount), subtext: "Tüm zamanlar" },
     { icon: Users, title: "Aktif Rezervasyon", value: totals.active.toString(), subtext: "Bekleyen & atanan" },
@@ -95,32 +112,78 @@ function Inner() {
     { icon: TrendingUp, title: "Aylık Gelir", value: currency.format(totals.monthRevenue), subtext: "Bu ay" },
   ];
 
-  return (
-    <div className="dashboard-shell mt-32 space-y-8">
-      <div className="space-y-2 text-center">
-        <h1 className={`${THEME.fontHead} text-3xl md:text-5xl ${THEME.gold}`}>Hoş geldin, {user?.full_name || "Kullanıcı"}</h1>
-        <p className={`${THEME.fontBody} ${THEME.textSecondary} text-sm uppercase tracking-[0.4em]`}>Zuber Partner Command</p>
-      </div>
+  const toggleDetail = (section: DetailSection) =>
+    setOpenDetails((prev) => ({ ...prev, [section]: !prev[section] }));
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {stats.map((stat) => (
-          <InfoCard key={stat.title} icon={stat.icon} title={stat.title} value={stat.value} subtext={stat.subtext} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <PartnerPanelCard title="Aylık Gelir" icon={<TrendingUp className="h-5 w-5" />} className="lg:col-span-2">
-          <PartnerIncomeChart data={monthly} />
-        </PartnerPanelCard>
-
-        <PartnerPanelCard title="Bildirimler" icon={<Bell className="h-5 w-5" />} className="max-h-[420px] overflow-auto">
-          <PartnerNotifications events={events} />
-        </PartnerPanelCard>
-      </div>
-
-      <PartnerPanelCard title="Son Rezervasyonlar" icon={<Briefcase className="h-5 w-5" />}>
+  const detailContent: Record<DetailSection, React.ReactNode> = {
+    monthly: (
+      <PartnerPanelCard title="Aylık Gelir" icon={<TrendingUp className="h-5 w-5" />} className="mt-2">
+        <PartnerIncomeChart data={monthly} />
+      </PartnerPanelCard>
+    ),
+    notifications: (
+      <PartnerPanelCard title="Bildirimler" icon={<Bell className="h-5 w-5" />} className="mt-2">
+        <PartnerNotifications events={events} />
+      </PartnerPanelCard>
+    ),
+    reservations: (
+      <PartnerPanelCard title="Son Rezervasyonlar" icon={<Briefcase className="h-5 w-5" />} className="mt-2">
         <PartnerReservationList rows={lastThree} />
       </PartnerPanelCard>
+    ),
+  };
+
+  return (
+    <div className="flex justify-center py-6 text-white">
+      <div className="dashboard-shell space-y-8">
+        <div className="dashboard-grid dashboard-grid-mobile-scroll gap-4">
+          {stats.map((stat) => (
+            <InfoCard key={stat.title} icon={stat.icon} title={stat.title} value={stat.value} subtext={stat.subtext} />
+          ))}
+        </div>
+
+        <div className="dashboard-grid dashboard-grid-mobile-scroll gap-4">
+          {detailCards.map((card) => (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => toggleDetail(card.key)}
+              aria-expanded={openDetails[card.key]}
+              className={`flex flex-col justify-between rounded-xl border bg-[#0f0f0f] p-4 text-left transition-all duration-200 ${
+                openDetails[card.key]
+                  ? "border-[#ffcc33]/60 shadow-[0_0_25px_rgba(255,204,51,0.35)]"
+                  : "border-[#ffcc33]/20 hover:border-[#ffcc33]/40 hover:shadow-[0_0_20px_rgba(255,204,51,0.2)]"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl border border-[#ffcc33]/30 bg-[#ffcc33]/10 p-2">{card.icon}</div>
+                <div>
+                  <p className={`${THEME.fontHead} text-lg ${THEME.textMain}`}>{card.title}</p>
+                  <p className={`${THEME.fontBody} text-xs ${THEME.textSecondary}`}>{card.subtitle}</p>
+                </div>
+              </div>
+              <div className={`${THEME.fontHead} text-2xl ${THEME.gold} mt-4`}>{card.value}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          {detailCards.map((card) => (
+            <AnimatePresence key={card.key}>
+              {openDetails[card.key] && (
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  {detailContent[card.key]}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
