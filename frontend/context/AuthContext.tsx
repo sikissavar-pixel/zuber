@@ -2,6 +2,7 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import api, { setAuthToken } from "../lib/api";
 import { toast } from "sonner";
+import { getSocket, getSocketState, subscribeToSocketState, type SocketConnectionState } from "../lib/socket";
 
 export type Role = "guest" | "driver" | "partner" | "admin";
 export type AuthUser = { id: number; full_name: string; email?: string; role: Role; must_change_password?: boolean } | null;
@@ -13,6 +14,8 @@ type AuthContextType = {
   login: (email: string, password: string, role?: Role) => Promise<void>;
   register: (full_name: string, email: string, password: string, role: Role) => Promise<void>;
   logout: () => void;
+  socketStatus: SocketConnectionState["status"];
+  socketError: string | null;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -21,6 +24,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
   const [user, setUser] = useState<AuthUser>(null);
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [socketState, setSocketState] = useState<SocketConnectionState>(() => getSocketState());
 
   useEffect(() => {
     const t = typeof window !== "undefined" ? localStorage.getItem("vip_token") : null;
@@ -34,6 +38,19 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
       try { setUser(JSON.parse(u)); } catch {}
     }
     setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let unsub = subscribeToSocketState(setSocketState);
+    try {
+      getSocket();
+    } catch {
+      // ignore: getSocket only runs in browser
+    }
+    return () => {
+      unsub?.();
+    };
   }, []);
 
   const roleRedirect = (role: Role) => {
@@ -92,6 +109,18 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     window.location.href = "/";
   }, []);
 
-  const value = useMemo(() => ({ user, token, ready, login, register, logout }), [user, token, ready, login, register, logout]);
+  const value = useMemo(
+    () => ({
+      user,
+      token,
+      ready,
+      login,
+      register,
+      logout,
+      socketStatus: socketState.status,
+      socketError: socketState.error || null,
+    }),
+    [user, token, ready, login, register, logout, socketState]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
