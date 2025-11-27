@@ -24,7 +24,11 @@ export default function AdminLiveMap() {
   const [mapLoading, setMapLoading] = useState(true);
 
   useEffect(() => {
-    setDrivers(initialLocations);
+    if (Array.isArray(initialLocations)) {
+      setDrivers(initialLocations);
+    } else {
+      setDrivers([]);
+    }
   }, [initialLocations]);
 
   useEffect(() => {
@@ -62,44 +66,52 @@ export default function AdminLiveMap() {
   }, []);
 
   useEffect(() => {
-    if (!map || typeof window === "undefined" || drivers.length === 0) return;
+    if (!map || typeof window === "undefined") return;
 
     const updateMarkers = async () => {
-      const { AdvancedMarkerElement } = (await google.maps.importLibrary("marker")) as google.maps.MarkerLibrary;
+      try {
+        const { AdvancedMarkerElement } = (await google.maps.importLibrary("marker")) as google.maps.MarkerLibrary;
 
-      markersRef.current.forEach((marker) => {
-        marker.map = null;
-      });
-      markersRef.current.clear();
-
-      drivers.forEach((driver) => {
-        const statusColor = driver.status === "on_ride" ? "#ef4444" : driver.status === "idle" ? "#10b981" : "#6b7280";
-
-        const markerElement = document.createElement("div");
-        markerElement.style.width = "20px";
-        markerElement.style.height = "20px";
-        markerElement.style.borderRadius = "50%";
-        markerElement.style.background = statusColor;
-        markerElement.style.border = "3px solid #f5c76a";
-        markerElement.style.boxShadow = `0 0 10px ${statusColor}40`;
-        markerElement.style.cursor = "pointer";
-
-        const marker = new AdvancedMarkerElement({
-          map,
-          position: { lat: driver.lat, lng: driver.lng },
-          content: markerElement,
-          title: `Sürücü #${driver.driver_id} - Hız: ${driver.speed || 0} km/h`,
+        markersRef.current.forEach((marker) => {
+          marker.map = null;
         });
+        markersRef.current.clear();
 
-        markerElement.addEventListener("click", () => {
-          const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="color: #000; padding: 8px;"><strong>Sürücü #${driver.driver_id}</strong><br/>Hız: ${driver.speed || 0} km/h<br/>Durum: ${driver.status || "offline"}</div>`,
+        if (Array.isArray(drivers) && drivers.length > 0) {
+          drivers.forEach((driver) => {
+            if (!driver || typeof driver.lat !== "number" || typeof driver.lng !== "number") return;
+            
+            const statusColor = driver.status === "on_ride" ? "#ef4444" : driver.status === "idle" ? "#10b981" : "#6b7280";
+
+            const markerElement = document.createElement("div");
+            markerElement.style.width = "20px";
+            markerElement.style.height = "20px";
+            markerElement.style.borderRadius = "50%";
+            markerElement.style.background = statusColor;
+            markerElement.style.border = "3px solid #f5c76a";
+            markerElement.style.boxShadow = `0 0 10px ${statusColor}40`;
+            markerElement.style.cursor = "pointer";
+
+            const marker = new AdvancedMarkerElement({
+              map,
+              position: { lat: driver.lat, lng: driver.lng },
+              content: markerElement,
+              title: `Sürücü #${driver.driver_id} - Hız: ${driver.speed || 0} km/h`,
+            });
+
+            markerElement.addEventListener("click", () => {
+              const infoWindow = new google.maps.InfoWindow({
+                content: `<div style="color: #000; padding: 8px;"><strong>Sürücü #${driver.driver_id}</strong><br/>Hız: ${driver.speed || 0} km/h<br/>Durum: ${driver.status || "offline"}</div>`,
+              });
+              infoWindow.open(map, marker);
+            });
+
+            markersRef.current.set(driver.driver_id, marker);
           });
-          infoWindow.open(map, marker);
-        });
-
-        markersRef.current.set(driver.driver_id, marker);
-      });
+        }
+      } catch (err) {
+        console.error("Marker update error:", err);
+      }
     };
 
     updateMarkers();
@@ -110,7 +122,9 @@ export default function AdminLiveMap() {
     socket.emit("join:drivers_live");
 
     const handleLocationUpdate = (data: DriverLocation) => {
+      if (!data || typeof data.driver_id !== "number") return;
       setDrivers((prev) => {
+        if (!Array.isArray(prev)) return [data];
         const existing = prev.findIndex((d) => d.driver_id === data.driver_id);
         if (existing >= 0) {
           const updated = [...prev];
@@ -122,14 +136,17 @@ export default function AdminLiveMap() {
     };
 
     socket.on("driver:location:update", handleLocationUpdate);
+    socket.on("driver_location_update", handleLocationUpdate);
 
     return () => {
       socket.off("driver:location:update", handleLocationUpdate);
+      socket.off("driver_location_update", handleLocationUpdate);
     };
   }, []);
 
-  const statusCounts = drivers.reduce(
+  const statusCounts = (Array.isArray(drivers) ? drivers : []).reduce(
     (acc, d) => {
+      if (!d) return acc;
       const status = d.status || "offline";
       acc[status] = (acc[status] || 0) + 1;
       return acc;
@@ -150,7 +167,7 @@ export default function AdminLiveMap() {
             <Car className="h-4 w-4 text-[#f5c76a]" />
             Toplam Sürücü
           </div>
-          <div className="text-2xl font-cinzel text-white">{drivers.length}</div>
+          <div className="text-2xl font-cinzel text-white">{Array.isArray(drivers) ? drivers.length : 0}</div>
         </div>
         <div className="rounded-2xl border border-[#3a2a0f] bg-[#050302]/80 p-4 backdrop-blur-xl">
           <div className="flex items-center gap-2 text-sm text-zinc-400 mb-2">

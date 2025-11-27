@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
-import Link from "next/link";
 import Navbar from "../../../components/Navbar";
 import { useAuth } from "../../../hooks/useAuth";
 import { toast } from "sonner";
@@ -19,7 +18,6 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Admin otomatik oluşturma (güvenli: varsa hata yoksayılır) ve bayrak ayarı
       if (email === "ysr@gmail.com" && password === "Aslan123") {
         try {
           await (await import("../../../lib/api")).default.post("/api/users/register", {
@@ -87,9 +85,6 @@ export default function LoginPage() {
             </div>
             <Button type="submit" loading={loading}>Giriş Yap</Button>
           </form>
-          <p className="mt-4 text-sm text-zinc-400">
-            Hesabın yok mu? <Link className="text-yellow-400" href="/register">Kayıt Ol</Link>
-          </p>
         </div>
       </main>
     </div>

@@ -121,7 +121,7 @@ export default function AdminApplications() {
     const term = searchTerm.toLowerCase();
     const isDriver = activeTab === "drivers";
     return currentList.filter((app: any) => {
-      const name = isDriver ? app.full_name : app.contact_full_name || app.name;
+      const name = isDriver ? app.full_name : app.contact_full_name || app.company_name;
       const email = isDriver ? app.email : app.contact_email;
       const phone = isDriver ? app.phone : app.contact_phone;
       return [name, email, phone].some((v) => v?.toLowerCase().includes(term));
@@ -192,10 +192,13 @@ export default function AdminApplications() {
               const type = isDriver ? "driver" : "partner";
               const approveKey = `approve-${type}-${app.id}`;
               const rejectKey = `reject-${type}-${app.id}`;
-              const name = isDriver ? app.full_name : app.contact_full_name || app.name;
+              const name = isDriver ? app.full_name : app.contact_full_name || app.company_name;
               const email = isDriver ? app.email : app.contact_email;
               const phone = isDriver ? app.phone : app.contact_phone;
-              const meta = isDriver ? app.vehicle_plate || app.city : app.city || app.description;
+              const tcMasked = app.tc_no_masked || "******";
+              const meta = isDriver 
+                ? `${app.vehicle_brand || ""} ${app.vehicle_model || ""} - ${app.plate_number || ""}`.trim() || app.city
+                : `${app.company_name || ""} - ${app.fleet_type || ""}`.trim() || app.city;
               const isActioning = actioning === approveKey || actioning === rejectKey;
 
               return (
@@ -204,6 +207,7 @@ export default function AdminApplications() {
                     <p className="text-lg font-semibold text-white mb-1">{name}</p>
                     <p className="text-sm text-zinc-400">{email}</p>
                     <p className="text-sm text-zinc-500">{phone || "Telefon yok"}</p>
+                    <p className="text-xs text-zinc-600 mt-1">TC: {tcMasked}</p>
                     {meta && <p className="text-xs text-zinc-600 mt-1">{meta}</p>}
                   </div>
                   {statusFilter === "pending" && (
