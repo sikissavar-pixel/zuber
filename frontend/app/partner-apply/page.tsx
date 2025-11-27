@@ -98,6 +98,7 @@ export default function PartnerApplyPage() {
         fleet_type: form.fleet_type,
         kvkk_consent: form.kvkk_consent,
         commercial_contract_approved: form.commercial_contract_approved,
+        company_documents_image_url: "",
       });
       toast.success("Başvurunuz alınmıştır. Onay sonrası bilgilendirileceksiniz.");
       setTimeout(() => router.push("/"), 3000);
