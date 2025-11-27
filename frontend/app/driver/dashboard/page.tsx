@@ -27,6 +27,7 @@ import { useMyDriverLocation } from "@/hooks/useDriverLocation";
 import { useRouteEstimate } from "@/hooks/useRouteEstimate";
 import dynamic from "next/dynamic";
 import { RouteInsightPanel } from "@/components/driver/maps";
+import type { DriverMarker } from "@/components/maps/ZuberMap";
 
 const DynamicZuberMap = dynamic(
   () => import("@/components/maps").then((mod) => mod.ZuberMap),
@@ -128,6 +129,21 @@ export default function DriverDashboard() {
   const [liveFeed, setLiveFeed] = useState<LiveFeedReservation[]>([]);
   const [mapMetrics, setMapMetrics] = useState<{ distanceKm: number; durationMinutes: number } | null>(null);
   const { data: driverLocation } = useMyDriverLocation(user?.role === "driver");
+  const driverMarkers = useMemo<DriverMarker[]>(
+    () =>
+      driverLocation
+        ? [
+            {
+              id: driverLocation.driver_id || user?.id || "driver",
+              lat: driverLocation.latitude,
+              lng: driverLocation.longitude,
+              heading: driverLocation.heading ?? undefined,
+              status: "Sürücü konumu",
+            },
+          ]
+        : [],
+    [driverLocation, user?.id]
+  );
 
   useEffect(() => {
     if (openReservationsData) {
@@ -452,7 +468,7 @@ export default function DriverDashboard() {
                       }
                     : undefined
                 }
-                drivers={[]}
+                drivers={driverMarkers}
                 onRouteMetrics={setMapMetrics}
                 height={360}
               />

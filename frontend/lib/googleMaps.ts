@@ -12,7 +12,13 @@ export function loadGoogleMaps() {
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
-    return Promise.reject(new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY tanımlı değil."));
+    const message = "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY tanımlı değil.";
+    if (process.env.NODE_ENV === "production") {
+      console.error(message);
+    } else {
+      console.warn(message);
+    }
+    return Promise.reject(new Error(message));
   }
 
   if (!loader) {

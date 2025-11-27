@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { loadGoogleMaps } from "@/lib/googleMaps";
 
 type LatLngLiteral = google.maps.LatLngLiteral;
+const DEFAULT_CENTER: LatLngLiteral = { lat: 41.0082, lng: 28.9784 };
 
 export type DriverMarker = {
   id: string | number;
@@ -84,6 +85,8 @@ export function ZuberMap({
           gestureHandling: "greedy",
           backgroundColor: "#050505",
           styles: mapStyles,
+          center: DEFAULT_CENTER,
+          zoom: 12,
         });
         setReady(true);
         containerRef.current.classList.add("opacity-100");
@@ -201,6 +204,13 @@ export function ZuberMap({
       .catch((err) => {
         console.warn(err);
       });
+  }, [drivers, ready]);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    if (!drivers.length) return;
+    const primary = drivers[0];
+    mapRef.current.panTo({ lat: primary.lat, lng: primary.lng });
   }, [drivers, ready]);
 
   // Draw route between two points
