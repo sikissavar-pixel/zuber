@@ -40,11 +40,15 @@ export function getSocket() {
   });
 
   if (typeof window !== "undefined") {
-    socket.io.on("reconnect_attempt", (attempt) => {
+    const client = socket;
+    client.io.on("reconnect_attempt", (attempt) => {
+      if (!client || !client.io || !client.io.opts) {
+        return;
+      }
       if (attempt % 3 === 0) {
-        socket.io.opts.transports = ["polling", "websocket"];
+        client.io.opts.transports = ["polling", "websocket"];
       } else {
-        socket.io.opts.transports = ["websocket", "polling"];
+        client.io.opts.transports = ["websocket", "polling"];
       }
     });
   }
