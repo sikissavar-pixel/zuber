@@ -12,7 +12,7 @@ import api from "../../../lib/api";
 import { Button } from "../../../components/ui/Button";
 import { useSearchParams } from "next/navigation";
 import MobileTabBar from "../../../components/mobile/MobileTabBar";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import MobileAppBridge from "../../../components/mobile/MobileAppBridge";
 import ApplicationCard from "../../../components/admin/ApplicationCard";
 import dynamic from "next/dynamic";
@@ -50,7 +50,6 @@ function AdminDashboardInner() {
 
 function AdminDashboardContent() {
   const [locations, setLocations] = useState<Record<string, DriverLocation>>({});
-  const [tempModal, setTempModal] = useState<{ open: boolean; password: string | null }>({ open: false, password: null });
   const { data: reservations } = useAdminReservations();
   const assign = useAssignDriver();
   const { data: drivers = [] } = useDrivers();
@@ -92,19 +91,6 @@ function AdminDashboardContent() {
   }, [reservations, sortKey, sortDir]);
 
   // Partner onayını PATCH ile yap, temp şifreyi modalda göster ve cache'i tazele
-  const approvePartnerPatch = async (app: any) => {
-    try {
-      const { data } = await api.patch(`/api/applications/partners/${app.id}/approve`);
-      const temp = data?.temporary_password || data?.temp_password || "";
-      setTempModal({ open: true, password: temp });
-      await qc.invalidateQueries({ queryKey: ["applications", "partners"] });
-      await qc.invalidateQueries({ queryKey: ["partners"] });
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail ? String(err.response.data.detail) : "Onay işlemi başarısız. Backend bağlantısını kontrol et.";
-      alert(`❌ ${msg}`);
-    }
-  };
-
   useEffect(() => {
     const socket = getSocket();
     const locHandler = (loc: DriverLocation) => {
@@ -307,10 +293,15 @@ function AdminDashboardContent() {
                       onApprove={async (id) => {
                           try {
                               const res: any = await approvePartner.mutateAsync(id);
-                              if (res?.temporary_password) {
-                                  setTempModal({ open: true, password: res.temporary_password });
+                              if (res?.email_sent) {
+                                  alert(res?.message || "Şifre kullanıcıya mail olarak gönderildi.");
+                              } else {
+                                  alert(res?.message || "Başvuru onaylandı.");
                               }
-                          } catch (e) {}
+                          } catch (err: any) {
+                              const detail = err?.response?.data?.detail || "Mail gönderilemedi, onay işlemi iptal edildi.";
+                              alert(`❌ ${detail}`);
+                          }
                       }}
                       onReject={(id) => rejectPartner.mutate(id)}
                    />
@@ -324,10 +315,15 @@ function AdminDashboardContent() {
                       onApprove={async (id) => {
                           try {
                               const res: any = await approveDriver.mutateAsync(id);
-                              if (res?.temporary_password) {
-                                  setTempModal({ open: true, password: res.temporary_password });
+                              if (res?.email_sent) {
+                                  alert(res?.message || "Şifre kullanıcıya mail olarak gönderildi.");
+                              } else {
+                                  alert(res?.message || "Başvuru onaylandı.");
                               }
-                          } catch (e) {}
+                          } catch (err: any) {
+                              const detail = err?.response?.data?.detail || "Mail gönderilemedi, onay işlemi iptal edildi.";
+                              alert(`❌ ${detail}`);
+                          }
                       }}
                       onReject={(id) => rejectDriver.mutate(id)}
                    />
@@ -461,21 +457,6 @@ function AdminDashboardContent() {
           </Card>
         )}
       </main>
-      {/* Temp password modal */}
-      <AnimatePresence>
-        {tempModal.open && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div initial={{ scale: 0.95, y: 10, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ duration: 0.25 }} className="gold-glass rounded-2xl p-6 max-w-md w-full">
-              <h3 className="font-cinzel text-xl text-[var(--gold)]">Partner onaylandı</h3>
-              <p className="mt-2 text-sm text-zinc-200">Geçici şifre aşağıdadır. Güvenlik gereği yalnızca bu anda görüntülenir.</p>
-              <div className="mt-4 px-3 py-2 rounded soft-border bg-black/40 text-yellow-300 font-mono tracking-wider select-all">{tempModal.password}</div>
-              <div className="mt-6 flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setTempModal({ open: false, password: null })}>Kapat</Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <MobileTabBar />
     </ProtectedRoute>
   );
