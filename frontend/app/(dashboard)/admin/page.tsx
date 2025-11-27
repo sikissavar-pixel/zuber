@@ -106,7 +106,17 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     const socket = getSocket();
-    const locHandler = (loc: DriverLocation) => setLocations((prev) => ({ ...prev, [loc.driverId]: loc }));
+    const locHandler = (loc: DriverLocation) => {
+      const driverId = String(loc.driverId ?? loc.driver_id ?? "");
+      if (!driverId) return;
+      const normalized = {
+        driverId,
+        lat: loc.lat ?? loc.latitude ?? 0,
+        lng: loc.lng ?? loc.longitude ?? 0,
+        updatedAt: loc.updatedAt ?? loc.updated_at ?? new Date().toISOString(),
+      };
+      setLocations((prev) => ({ ...prev, [driverId]: normalized }));
+    };
     socket.emit("admin_join");
     socket.on("driver_location_update", locHandler);
     socket.on("reservation_created", () => qc.invalidateQueries({ queryKey: ["reservations", "admin"] }));

@@ -11,13 +11,3 @@ export function useSocket(eventMap: Record<string, (...args: any[]) => void>) {
     };
   }, []);
 }
-
-export function emitDriverLocation(driverId: number, lat: number, lng: number) {
-  const socket = getSocket();
-  socket.emit("driver_location_update", {
-    driverId,
-    lat,
-    lng,
-    updatedAt: new Date().toISOString(),
-  });
-}

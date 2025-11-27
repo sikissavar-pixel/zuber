@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, memo } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { DriverLocationReporter } from "@/components/driver/DriverLocationReporter";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { usePathname } from "next/navigation";
@@ -146,6 +147,7 @@ function Inner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[#010101] text-white font-inter flex">
+      <DriverLocationReporter />
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div

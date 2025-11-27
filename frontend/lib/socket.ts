@@ -25,8 +25,15 @@ export function getSocket() {
 }
 
 export type DriverLocation = {
-  driverId: string;
-  lat: number;
-  lng: number;
-  updatedAt: string;
+  driverId?: number | string;
+  driver_id?: number;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
+  heading?: number | null;
+  speed?: number | null;
+  accuracy?: number | null;
+  updatedAt?: string;
+  updated_at?: string;
 };

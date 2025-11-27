@@ -16,13 +16,16 @@ import {
   MapPin,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSocket } from "@/lib/socket";
 import api from "@/lib/api";
 import type { Reservation } from "@/hooks/useReservations";
 import { GlassCard, ParticleBackground, GradientText, PulsingDot } from "@/components/driver/ui";
 import { PremiumStatCard, QuickActionCard } from "@/components/driver/cards";
 import { LiveFeedCard, LiveFeedHeader, EmptyFeedState } from "@/components/driver/live-feed";
+import { useMyDriverLocation } from "@/hooks/useDriverLocation";
+import { useRouteEstimate } from "@/hooks/useRouteEstimate";
+import { DriverLiveMap, RouteInsightPanel } from "@/components/driver/maps";
 
 type NotificationEntry = {
   id: string;
@@ -76,6 +79,8 @@ export default function DriverDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const name = user?.full_name || "Sürücü";
+  const queryClient = useQueryClient();
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
   const { data: reservationsData = [], isLoading: isLoadingReservations } = useQuery<Reservation[]>({
     queryKey: ["driver", "dashboard", "reservations"],
@@ -108,6 +113,7 @@ export default function DriverDashboard() {
   });
 
   const [liveFeed, setLiveFeed] = useState<LiveFeedReservation[]>([]);
+  const { data: driverLocation } = useMyDriverLocation(user?.role === "driver");
 
   useEffect(() => {
     if (openReservationsData) {
@@ -140,6 +146,28 @@ export default function DriverDashboard() {
       socket.off("reservation_assigned", onAssigned);
     };
   }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    const handleLocation = (payload: any) => {
+      const driverId = Number(payload?.driverId ?? payload?.driver_id);
+      if (!driverId || driverId !== Number(user?.id)) return;
+      const normalized = {
+        driver_id: driverId,
+        latitude: Number(payload?.lat ?? payload?.latitude),
+        longitude: Number(payload?.lng ?? payload?.longitude),
+        heading: payload?.heading ?? null,
+        speed: payload?.speed ?? null,
+        accuracy: payload?.accuracy ?? null,
+        updated_at: payload?.updatedAt ?? payload?.updated_at ?? new Date().toISOString(),
+      };
+      queryClient.setQueryData(["driver", "location", "me"], normalized);
+    };
+    socket.on("driver_location_update", handleLocation);
+    return () => {
+      socket.off("driver_location_update", handleLocation);
+    };
+  }, [queryClient, user?.id]);
 
   const todaysEarnings = useMemo(
     () =>
@@ -189,6 +217,19 @@ export default function DriverDashboard() {
   );
 
   const activeReservation = upcomingReservations[0];
+  const originWaypoint = useMemo(
+    () => (activeReservation?.pickup_location ? { address: activeReservation.pickup_location } : undefined),
+    [activeReservation?.pickup_location]
+  );
+  const destinationWaypoint = useMemo(
+    () => (activeReservation?.dropoff_location ? { address: activeReservation.dropoff_location } : undefined),
+    [activeReservation?.dropoff_location]
+  );
+  const { data: routeEstimate, isLoading: isRouteLoading } = useRouteEstimate(
+    originWaypoint,
+    destinationWaypoint,
+    Boolean(originWaypoint && destinationWaypoint)
+  );
 
   const notificationEntries = useMemo<NotificationEntry[]>(() => {
     if (!reservationsData.length) return [];
@@ -383,6 +424,24 @@ export default function DriverDashboard() {
               ))}
             </div>
           </div>
+        </GlassCard>
+
+        <GlassCard variant="default" glowIntensity="subtle" className="p-5">
+          {googleMapsApiKey ? (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
+              <DriverLiveMap
+                apiKey={googleMapsApiKey}
+                route={routeEstimate}
+                driverLocation={driverLocation || null}
+                pickupLabel={activeReservation?.pickup_location}
+                dropoffLabel={activeReservation?.dropoff_location}
+                isLoading={isRouteLoading}
+              />
+              <RouteInsightPanel route={routeEstimate} driverLocation={driverLocation || null} isLoading={isRouteLoading} />
+            </div>
+          ) : (
+            <EmptyState message="Google Maps API anahtarı tanımlı değil. Lütfen NEXT_PUBLIC_GOOGLE_MAPS_API_KEY değişkenini tanımlayın." />
+          )}
         </GlassCard>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
