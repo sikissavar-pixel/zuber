@@ -109,16 +109,30 @@ function Inner() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <PartnerPanelCard title="Aylık Gelir" icon={<TrendingUp className="h-5 w-5" />} className="lg:col-span-2">
+        <PartnerPanelCard 
+          title="Aylık Gelir" 
+          icon={<TrendingUp className="h-5 w-5" />} 
+          className="lg:col-span-2"
+          href="/partner/wallet"
+        >
           <PartnerIncomeChart data={monthly} />
         </PartnerPanelCard>
 
-        <PartnerPanelCard title="Bildirimler" icon={<Bell className="h-5 w-5" />} className="max-h-[420px] overflow-auto">
+        <PartnerPanelCard 
+          title="Bildirimler" 
+          icon={<Bell className="h-5 w-5" />} 
+          className="max-h-[420px] overflow-auto"
+          href="/partner/notifications"
+        >
           <PartnerNotifications events={events} />
         </PartnerPanelCard>
       </div>
 
-      <PartnerPanelCard title="Son Rezervasyonlar" icon={<Briefcase className="h-5 w-5" />}>
+      <PartnerPanelCard 
+        title="Son Rezervasyonlar" 
+        icon={<Briefcase className="h-5 w-5" />}
+        href="/partner/bookings"
+      >
         <PartnerReservationList rows={lastThree} />
       </PartnerPanelCard>
     </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell, CalendarRange, MapPin } from "lucide-react";
+import { Bell, CalendarRange, MapPin, ChevronRight } from "lucide-react";
 import type { Reservation } from "@/hooks/useReservations";
 import { DASHBOARD_THEME as THEME } from "@/components/dashboard/theme";
 import React from "react";
+import Link from "next/link";
 
 type ChartDatum = {
   label: string;
@@ -23,11 +24,45 @@ type PanelProps = {
   action?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
+  href?: string;
 };
 
 const baseCard = `${THEME.cardBg} ${THEME.borderGlow} rounded-xl p-6 h-full`;
 
-export function PartnerPanelCard({ title, icon, action, className = "", children }: PanelProps) {
+export function PartnerPanelCard({ title, icon, action, className = "", children, href }: PanelProps) {
+  const cardContent = (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          {icon && <span className="text-[#ffcc33]">{icon}</span>}
+          <h3 className={`${THEME.fontHead} text-xl ${THEME.textMain}`}>{title}</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {action}
+          {href && (
+            <ChevronRight className="h-5 w-5 text-[#ffcc33] opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+          )}
+        </div>
+      </div>
+      {children}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="block group">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          className={`${baseCard} ${className} cursor-pointer transition-all duration-300 hover:border-[#ffcc33]/50 hover:shadow-[0_0_30px_rgba(255,204,51,0.15)]`}
+        >
+          {cardContent}
+        </motion.div>
+      </Link>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -35,14 +70,7 @@ export function PartnerPanelCard({ title, icon, action, className = "", children
       viewport={{ once: true, amount: 0.2 }}
       className={`${baseCard} ${className}`}
     >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          {icon && <span className="text-[#ffcc33]">{icon}</span>}
-          <h3 className={`${THEME.fontHead} text-xl ${THEME.textMain}`}>{title}</h3>
-        </div>
-        {action}
-      </div>
-      {children}
+      {cardContent}
     </motion.div>
   );
 }
