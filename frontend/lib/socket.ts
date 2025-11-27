@@ -2,24 +2,39 @@ import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
 
+const PROD_SOCKET_FALLBACK = "https://zuber-production-b617.up.railway.app";
+const isDev = process.env.NODE_ENV === "development";
+
+function normalizeUrl(value: string) {
+  let url = value.trim();
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url.replace(/^\/+/, "")}`;
+  }
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
 export function getSocket() {
   if (socket) return socket;
-  
-  // Use Railway backend URL for socket connection
-  let base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  // Remove trailing slash to ensure clean URL
-  base = base.endsWith("/") ? base.slice(0, -1) : base;
-  
-  const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || base;
+
+  const apiBase = process.env.NEXT_PUBLIC_API_URL;
+  const socketEnv = process.env.NEXT_PUBLIC_SOCKET_URL;
+  const defaultBase = isDev ? "http://localhost:8000" : PROD_SOCKET_FALLBACK;
+
+  const target = normalizeUrl(socketEnv || apiBase || defaultBase);
   const socketPath = process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io";
 
-  socket = io(socketUrl, {
+  if (typeof window !== "undefined" && !socketEnv && !apiBase && !isDev) {
+    console.warn("⚠️ NEXT_PUBLIC_SOCKET_URL not set! Falling back to production socket endpoint.");
+  }
+
+  socket = io(target, {
     path: socketPath,
     transports: ["websocket", "polling"],
     autoConnect: true,
     withCredentials: true,
     reconnection: true,
     reconnectionAttempts: 5,
+    secure: target.startsWith("https"),
   });
   return socket;
 }

@@ -129,20 +129,41 @@ export default function DriverDashboard() {
   const [liveFeed, setLiveFeed] = useState<LiveFeedReservation[]>([]);
   const [mapMetrics, setMapMetrics] = useState<{ distanceKm: number; durationMinutes: number } | null>(null);
   const { data: driverLocation } = useMyDriverLocation(user?.role === "driver");
+  const [fallbackLocation, setFallbackLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined" || driverLocation || fallbackLocation) return;
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFallbackLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      () => {},
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 2000,
+      }
+    );
+  }, [driverLocation, fallbackLocation]);
+
   const driverMarkers = useMemo<DriverMarker[]>(
-    () =>
-      driverLocation
-        ? [
-            {
-              id: driverLocation.driver_id || user?.id || "driver",
-              lat: driverLocation.latitude,
-              lng: driverLocation.longitude,
-              heading: driverLocation.heading ?? undefined,
-              status: "Sürücü konumu",
-            },
-          ]
-        : [],
-    [driverLocation, user?.id]
+    () => {
+      const source = driverLocation || fallbackLocation;
+      if (!source) return [];
+      return [
+        {
+          id: driverLocation?.driver_id || user?.id || "driver",
+          lat: source.latitude,
+          lng: source.longitude,
+          heading: driverLocation?.heading ?? undefined,
+          status: driverLocation ? "Sürücü konumu" : "Cihaz konumu",
+        },
+      ];
+    },
+    [driverLocation, fallbackLocation, user?.id]
   );
 
   useEffect(() => {
@@ -459,19 +480,26 @@ export default function DriverDashboard() {
         <GlassCard variant="default" glowIntensity="subtle" className="p-5">
           {googleMapsApiKey ? (
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
-              <DynamicZuberMap
-                route={
-                  activeReservation?.pickup_location && activeReservation?.dropoff_location
-                    ? {
-                        origin: activeReservation.pickup_location,
-                        destination: activeReservation.dropoff_location,
-                      }
-                    : undefined
-                }
-                drivers={driverMarkers}
-                onRouteMetrics={setMapMetrics}
-                height={360}
-              />
+              <div className="relative">
+                <DynamicZuberMap
+                  route={
+                    activeReservation?.pickup_location && activeReservation?.dropoff_location
+                      ? {
+                          origin: activeReservation.pickup_location,
+                          destination: activeReservation.dropoff_location,
+                        }
+                      : undefined
+                  }
+                  drivers={driverMarkers}
+                  onRouteMetrics={setMapMetrics}
+                  height={360}
+                />
+                {!driverMarkers.length && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-[#cfcfcf] bg-black/30 backdrop-blur-sm rounded-3xl">
+                    Sürücü konumu bekleniyor...
+                  </div>
+                )}
+              </div>
               <RouteInsightPanel
                 route={routeEstimate}
                 driverLocation={driverLocation || null}
