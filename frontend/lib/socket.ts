@@ -2,7 +2,7 @@ import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
 
-const PROD_SOCKET_FALLBACK = "https://zuber-production-b617.up.railway.app";
+const PROD_SOCKET_FALLBACK = "https://zuber-backend-production-071e.up.railway.app";
 const isDev = process.env.NODE_ENV === "development";
 
 function normalizeUrl(value: string) {

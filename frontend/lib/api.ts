@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const PROD_BACKEND_FALLBACK = "https://zuber-production-b617.up.railway.app";
+const PROD_BACKEND_FALLBACK = "https://zuber-backend-production-071e.up.railway.app";
 const isDev = process.env.NODE_ENV === "development";
 const defaultBase = isDev ? "http://localhost:8000" : PROD_BACKEND_FALLBACK;
 
