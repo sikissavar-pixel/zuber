@@ -28,6 +28,10 @@ const PLACEHOLDER_RESERVATION: Reservation = {
   dropoff_location: "IST Havalimanı",
   pickup_time: new Date().toISOString(),
   status: "pending",
+  payment_status: "unpaid",
+  created_at: new Date().toISOString(),
+  payment_reference: null,
+  total_amount: 0,
 };
 
 const PLACEHOLDER_FEED: Reservation[] = Array.from({ length: 4 }).map((_, i) => ({
