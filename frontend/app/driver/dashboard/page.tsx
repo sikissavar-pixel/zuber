@@ -95,16 +95,16 @@ export default function DriverDashboard() {
               ];
           return next.slice(0, 10);
         });
-        setNotifications((prev) => [
-          {
+        setNotifications((prev) => {
+          const entry: NotificationEntry = {
             id: `socket-${payload.id}`,
             title: "Yeni rezervasyon",
             message: `${payload.pickup_location} → ${payload.dropoff_location}`,
             time: "Şimdi",
             status: "info",
-          },
-          ...prev,
-        ].slice(0, 4));
+          };
+          return [entry, ...prev].slice(0, 4);
+        });
       }
     };
 
