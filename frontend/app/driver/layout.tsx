@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, memo } from "react";
+import React, { useEffect, useState, memo, useCallback } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +10,9 @@ import {
   Home, CalendarDays, MessageSquare, Wallet, QrCode, Star, Lock, LogOut, 
   Signal, Menu, X, ChevronRight, Zap
 } from "lucide-react";
+import { FloatingChatWidget, VIPCallModal } from "@/components/driver/chat";
+import { FloatingActionBar } from "@/components/driver/mobile";
+import { getSocket } from "@/lib/socket";
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -88,8 +91,23 @@ function Inner({ children }: { children: React.ReactNode }) {
   const { logout, user } = useAuth();
   const pathname = usePathname();
   const [time, setTime] = useState<string>("");
-  const [online] = useState(true);
+  const [online, setOnline] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  
+  // VIP Call Modal state
+  const [callModalOpen, setCallModalOpen] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{
+    id: number;
+    guestName: string;
+    pickup: string;
+    dropoff: string;
+    time: string;
+    estimatedAmount?: string;
+    isVIP?: boolean;
+    rating?: number;
+  } | null>(null);
 
   useEffect(() => {
     setTime(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }));
@@ -97,6 +115,65 @@ function Inner({ children }: { children: React.ReactNode }) {
       setTime(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }));
     }, 1000);
     return () => clearInterval(id);
+  }, []);
+
+  // Socket listener for incoming calls
+  useEffect(() => {
+    const socket = getSocket();
+    
+    const handleNewReservation = (payload: any) => {
+      if (payload && payload.status === "pending" && !payload.driver_id) {
+        // Show VIP call modal
+        setIncomingCall({
+          id: payload.id,
+          guestName: payload.guest_name || "VIP Misafir",
+          pickup: payload.pickup_location || "Bilinmiyor",
+          dropoff: payload.dropoff_location || "Bilinmiyor",
+          time: new Date(payload.pickup_time || Date.now()).toLocaleString("tr-TR"),
+          estimatedAmount: payload.total_amount ? `${payload.total_amount}₺` : undefined,
+          isVIP: true,
+          rating: 4.9,
+        });
+        setCallModalOpen(true);
+      }
+    };
+
+    const handleChatMessage = (payload: any) => {
+      if (!chatOpen && payload?.from !== "driver") {
+        setUnreadMessages((prev) => prev + 1);
+      }
+    };
+
+    socket.on("reservation_created", handleNewReservation);
+    socket.on("driver_chat_message", handleChatMessage);
+
+    return () => {
+      socket.off("reservation_created", handleNewReservation);
+      socket.off("driver_chat_message", handleChatMessage);
+    };
+  }, [chatOpen]);
+
+  const handleAcceptCall = useCallback((id: number) => {
+    const socket = getSocket();
+    if (user?.id) {
+      socket.emit("accept_reservation", { reservation_id: id, driver_id: user.id });
+    }
+    setCallModalOpen(false);
+    setIncomingCall(null);
+  }, [user?.id]);
+
+  const handleDeclineCall = useCallback((id: number) => {
+    setCallModalOpen(false);
+    setIncomingCall(null);
+  }, []);
+
+  const toggleOnline = useCallback(() => {
+    setOnline((prev) => !prev);
+  }, []);
+
+  const openChat = useCallback(() => {
+    setChatOpen(true);
+    setUnreadMessages(0);
   }, []);
 
   const nav = [
@@ -248,10 +325,29 @@ function Inner({ children }: { children: React.ReactNode }) {
         <div className="h-px bg-gradient-to-r from-transparent via-[#ffb400]/30 to-transparent" />
 
         {/* Page content */}
-        <div className="flex-1">
+        <div className="flex-1 pb-20 lg:pb-0">
           {children}
         </div>
       </main>
+
+      {/* Floating Chat Widget */}
+      <FloatingChatWidget partnerName="Partner" />
+
+      {/* VIP Call Modal */}
+      <VIPCallModal
+        isOpen={callModalOpen}
+        callData={incomingCall}
+        onAccept={handleAcceptCall}
+        onDecline={handleDeclineCall}
+      />
+
+      {/* Mobile Floating Action Bar */}
+      <FloatingActionBar
+        isOnline={online}
+        onToggleOnline={toggleOnline}
+        onOpenChat={openChat}
+        unreadMessages={unreadMessages}
+      />
     </div>
   );
 }
