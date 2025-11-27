@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Cinzel } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { PWAInitializer } from "@/components/PWAInitializer";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -16,6 +17,13 @@ const cinzel = Cinzel({
 export const metadata: Metadata = {
   title: "Zuber • VIP Araç Transfer",
   description: "İstanbul'da premium, rezervasyonlu VIP sürücü deneyimi.",
+  manifest: "/manifest.json",
+  themeColor: "#050505",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Zuber",
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +36,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${cinzel.variable} antialiased vip-radial text-foreground overflow-x-hidden overflow-y-auto bg-black min-h-screen w-full max-w-[100vw]`}>
         <Providers>
           <div className="transition-all duration-500 ease-in-out relative">
+            <PWAInitializer />
             {children}
           </div>
         </Providers>

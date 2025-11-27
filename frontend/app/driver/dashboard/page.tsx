@@ -25,7 +25,20 @@ import { PremiumStatCard, QuickActionCard } from "@/components/driver/cards";
 import { LiveFeedCard, LiveFeedHeader, EmptyFeedState } from "@/components/driver/live-feed";
 import { useMyDriverLocation } from "@/hooks/useDriverLocation";
 import { useRouteEstimate } from "@/hooks/useRouteEstimate";
-import { DriverLiveMap, RouteInsightPanel } from "@/components/driver/maps";
+import dynamic from "next/dynamic";
+import { RouteInsightPanel } from "@/components/driver/maps";
+
+const DynamicZuberMap = dynamic(
+  () => import("@/components/maps").then((mod) => mod.ZuberMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-80 rounded-3xl border border-[#1c1c1c] bg-[#050505] flex items-center justify-center text-sm text-[#888]">
+        Harita yükleniyor...
+      </div>
+    ),
+  }
+);
 
 type NotificationEntry = {
   id: string;
@@ -113,6 +126,7 @@ export default function DriverDashboard() {
   });
 
   const [liveFeed, setLiveFeed] = useState<LiveFeedReservation[]>([]);
+  const [mapMetrics, setMapMetrics] = useState<{ distanceKm: number; durationMinutes: number } | null>(null);
   const { data: driverLocation } = useMyDriverLocation(user?.role === "driver");
 
   useEffect(() => {
@@ -429,15 +443,25 @@ export default function DriverDashboard() {
         <GlassCard variant="default" glowIntensity="subtle" className="p-5">
           {googleMapsApiKey ? (
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
-              <DriverLiveMap
-                apiKey={googleMapsApiKey}
+              <DynamicZuberMap
+                route={
+                  activeReservation?.pickup_location && activeReservation?.dropoff_location
+                    ? {
+                        origin: activeReservation.pickup_location,
+                        destination: activeReservation.dropoff_location,
+                      }
+                    : undefined
+                }
+                drivers={[]}
+                onRouteMetrics={setMapMetrics}
+                height={360}
+              />
+              <RouteInsightPanel
                 route={routeEstimate}
                 driverLocation={driverLocation || null}
-                pickupLabel={activeReservation?.pickup_location}
-                dropoffLabel={activeReservation?.dropoff_location}
                 isLoading={isRouteLoading}
+                liveMetrics={mapMetrics || undefined}
               />
-              <RouteInsightPanel route={routeEstimate} driverLocation={driverLocation || null} isLoading={isRouteLoading} />
             </div>
           ) : (
             <EmptyState message="Google Maps API anahtarı tanımlı değil. Lütfen NEXT_PUBLIC_GOOGLE_MAPS_API_KEY değişkenini tanımlayın." />

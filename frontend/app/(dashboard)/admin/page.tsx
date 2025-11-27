@@ -2,7 +2,6 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Navbar from "../../../components/Navbar";
 import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/Card";
-import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { getSocket, DriverLocation } from "../../../lib/socket";
 import { Table, THead, TBody, TR, TH, TD } from "../../../components/ui/Table";
 import { useAdminReservations, useAssignDriver, useDrivers, usePartners } from "../../../hooks/useReservations";
@@ -16,9 +15,18 @@ import MobileTabBar from "../../../components/mobile/MobileTabBar";
 import { motion, AnimatePresence } from "framer-motion";
 import MobileAppBridge from "../../../components/mobile/MobileAppBridge";
 import ApplicationCard from "../../../components/admin/ApplicationCard";
-
-const containerStyle = { width: "100%", height: "500px" } as const;
-const center = { lat: 41.0082, lng: 28.9784 } as const; // Istanbul
+import dynamic from "next/dynamic";
+const AdminZuberMap = dynamic(
+  () => import("@/components/maps").then((mod) => mod.ZuberMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[500px] rounded-3xl border border-yellow-800/30 bg-black/40 flex items-center justify-center text-sm text-zinc-400">
+        Harita yükleniyor...
+      </div>
+    ),
+  }
+);
 
 import ProtectedRoute from "../../../components/ProtectedRoute";
 
@@ -42,7 +50,6 @@ function AdminDashboardInner() {
 
 function AdminDashboardContent() {
   const [locations, setLocations] = useState<Record<string, DriverLocation>>({});
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [tempModal, setTempModal] = useState<{ open: boolean; password: string | null }>({ open: false, password: null });
   const { data: reservations } = useAdminReservations();
   const assign = useAssignDriver();
@@ -97,12 +104,6 @@ function AdminDashboardContent() {
       alert(`❌ ${msg}`);
     }
   };
-
-  const { isLoaded } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-  });
-  const googleApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
   useEffect(() => {
     const socket = getSocket();
@@ -170,6 +171,22 @@ function AdminDashboardContent() {
       socket.off("admin_reset");
     };
   }, []);
+
+  const driverMarkers = useMemo(() => {
+    const makeId = () => {
+      if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+        return crypto.randomUUID();
+      }
+      return `driver-${Math.random().toString(36).slice(2, 9)}`;
+    };
+    return Object.values(locations).map((loc) => ({
+      id: loc.driverId ?? loc.driver_id ?? makeId(),
+      lat: Number(loc.lat ?? loc.latitude ?? 0),
+      lng: Number(loc.lng ?? loc.longitude ?? 0),
+      heading: loc.heading ?? null,
+      status: "Çevrimiçi sürücü",
+    }));
+  }, [locations]);
 
   // Sürücü ve partnerler artık React Query ile çekiliyor; periyodik refetch ve cache sağlandı
 
@@ -367,17 +384,10 @@ function AdminDashboardContent() {
                 <CardTitle className="font-cinzel text-yellow-400">Canlı Sürücü Haritası</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoaded ? (
-                  <div className="relative">
-                    <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={11} onLoad={() => setMapLoaded(true)}>
-                      {Object.values(locations).map((l) => (
-                        <Marker key={l.driverId} position={{ lat: l.lat, lng: l.lng }} label={String(l.driverId)} />
-                      ))}
-                    </GoogleMap>
-                    <div className="pointer-events-none absolute inset-0 bg-black/20 rounded"></div>
-                  </div>
+                {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+                  <AdminZuberMap drivers={driverMarkers} height={500} />
                 ) : (
-                  <p>{googleApiKey ? "Harita yükleniyor..." : "Google Maps API anahtarı eksik veya geçersiz."}</p>
+                  <p className="text-sm text-zinc-400">Google Maps API anahtarı eksik veya geçersiz.</p>
                 )}
               </CardContent>
             </Card>

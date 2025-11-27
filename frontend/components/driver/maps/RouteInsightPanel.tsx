@@ -7,9 +7,10 @@ type RouteInsightPanelProps = {
   route?: RouteEstimate | null;
   driverLocation?: DriverLocation | null;
   isLoading?: boolean;
+  liveMetrics?: { distanceKm?: number; durationMinutes?: number };
 };
 
-export function RouteInsightPanel({ route, driverLocation, isLoading }: RouteInsightPanelProps) {
+export function RouteInsightPanel({ route, driverLocation, isLoading, liveMetrics }: RouteInsightPanelProps) {
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-[#ffcc33]/15 bg-[#050505]/60 p-4 text-sm text-[#bcbcbc]">
@@ -26,8 +27,8 @@ export function RouteInsightPanel({ route, driverLocation, isLoading }: RouteIns
     );
   }
 
-  const distanceKm = route.distance_meters / 1000;
-  const durationMin = route.duration_seconds / 60;
+  const distanceKm = liveMetrics?.distanceKm ?? route.distance_meters / 1000;
+  const durationMin = liveMetrics?.durationMinutes ?? route.duration_seconds / 60;
   const updatedAt = driverLocation?.updated_at
     ? new Date(driverLocation.updated_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
     : null;
