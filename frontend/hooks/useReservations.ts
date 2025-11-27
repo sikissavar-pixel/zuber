@@ -127,7 +127,7 @@ export function useDrivers() {
   return useQuery<Driver[]>({
     queryKey: ["drivers"],
     queryFn: async () => {
-      const { data } = await api.get("/api/users");
+      const { data } = await api.get("/api/users/");
       return (data || []).filter((u: any) => u.role === "driver");
     },
     staleTime: 10_000,
