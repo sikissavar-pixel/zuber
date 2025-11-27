@@ -1,15 +1,32 @@
 "use client";
+
 import React, { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import api from "@/lib/api";
 import type { Reservation } from "@/hooks/useReservations";
 import { useAuth } from "@/hooks/useAuth";
 import { getSocket } from "@/lib/socket";
+import { GlassCard } from "@/components/driver/ui";
+import { StatusBadge } from "@/components/driver/live-feed";
+
+const STATUS_FILTERS = [
+  { id: "all", label: "Tümü" },
+  { id: "assigned", label: "Aktif" },
+  { id: "completed", label: "Tamamlanan" },
+] as const;
+
+const statusMap: Record<Reservation["status"], Parameters<typeof StatusBadge>[0]["status"]> = {
+  pending: "pending",
+  assigned: "assigned",
+  in_progress: "on_route",
+  completed: "completed",
+  cancelled: "cancelled",
+};
 
 export default function DriverReservations() {
   const { user } = useAuth();
-  const [filter, setFilter] = useState<"all" | "assigned" | "completed">("all");
+  const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]["id"]>("all");
   const queryClient = useQueryClient();
   const { data: reservations, isLoading } = useQuery<Reservation[]>({
     queryKey: ["driver", "reservations"],
@@ -25,7 +42,6 @@ export default function DriverReservations() {
     const socket = getSocket();
     const refetchIfMine = (payload: any) => {
       if (!payload) return;
-      // Only refetch when the update concerns the logged-in driver
       if (payload.driver_id && user?.id && Number(payload.driver_id) === Number(user.id)) {
         queryClient.invalidateQueries({ queryKey: ["driver", "reservations"] });
       }
@@ -41,7 +57,6 @@ export default function DriverReservations() {
   const updateStatus = async (id: number, status: Reservation["status"]) => {
     try {
       await api.patch(`/api/reservations/${id}/status`, { status });
-      // Socket will update, but also refetch to be responsive
       queryClient.invalidateQueries({ queryKey: ["driver", "reservations"] });
     } catch (e) {
       console.error(e);
@@ -49,98 +64,121 @@ export default function DriverReservations() {
     }
   };
 
-  const renderActions = (r: Reservation) => {
-    if (r.status === "assigned") {
-      return (
-        <button
-          onClick={() => updateStatus(r.id, "in_progress")}
-          className="px-3 py-1 rounded-lg bg-yellow-500 text-black text-xs font-semibold hover:scale-[1.02] transition-all"
-        >
-          Sürüşü Başlat
-        </button>
-      );
-    }
-    if (r.status === "in_progress") {
-      return (
-        <button
-          onClick={() => updateStatus(r.id, "completed")}
-          className="px-3 py-1 rounded-lg bg-green-500 text-black text-xs font-semibold hover:scale-[1.02] transition-all"
-        >
-          Tamamla
-        </button>
-      );
-    }
-    return null;
-  };
-
   const rows = useMemo(() => {
     const list = reservations || [];
-    return list.filter((r) => {
-      if (filter === "all") return r.status !== "cancelled";
-      return r.status === filter;
+    return list.filter((reservation) => {
+      if (filter === "all") return reservation.status !== "cancelled";
+      return reservation.status === filter;
     });
   }, [reservations, filter]);
 
-  const statusBadge = (s: Reservation["status"]) => {
-    const map: Record<Reservation["status"], { label: string; className: string }> = {
-      pending: { label: "Bekliyor", className: "bg-yellow-700/30 text-yellow-300" },
-      assigned: { label: "Atandı", className: "bg-green-700/30 text-green-300" },
-      in_progress: { label: "Sürüşte", className: "bg-blue-700/30 text-blue-300" },
-      completed: { label: "Tamamlandı", className: "bg-gray-700/30 text-gray-300" },
-      cancelled: { label: "İptal", className: "bg-red-700/30 text-red-300" },
-    };
-    const m = map[s];
-    return <span className={`px-2 py-1 rounded-lg text-xs ${m.className}`}>{m.label}</span>;
-  };
+  const summary = useMemo(() => {
+    const list = reservations || [];
+    const active = list.filter((reservation) => reservation.status === "assigned" || reservation.status === "in_progress")
+      .length;
+    const completed = list.filter((reservation) => reservation.status === "completed").length;
+    const pendingPayments = list.filter((reservation) => reservation.payment_status !== "paid").length;
+    return { total: list.length, active, completed, pendingPayments };
+  }, [reservations]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        {(["all", "assigned", "completed"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-2 rounded-xl border border-yellow-500/30 bg-black/60 backdrop-blur-sm hover:scale-[1.02] hover:shadow-[0_0_20px_#facc15]/20 transition-all duration-300 ${
-              filter === f ? "opacity-100" : "opacity-75"
+    <div className="space-y-6">
+      <GlassCard variant="default" className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-[#ffcc33]">rezervasyon yönetimi</p>
+            <h1 className="font-cinzel text-2xl text-white">Canlı operasyon görünümü</h1>
+          </div>
+          <div className="flex gap-4 text-sm text-[#cfcfcf]">
+            <span>Aktif: {summary.active}</span>
+            <span>Tamamlanan: {summary.completed}</span>
+            <span>Ödeme bekleyen: {summary.pendingPayments}</span>
+          </div>
+        </div>
+      </GlassCard>
+
+      <div className="flex flex-wrap gap-3">
+        {STATUS_FILTERS.map((item) => (
+          <motion.button
+            key={item.id}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setFilter(item.id)}
+            className={`px-4 py-2 rounded-2xl border transition ${
+              filter === item.id
+                ? "border-[#ffcc33] bg-[#ffcc33]/10 text-white"
+                : "border-[#ffcc33]/20 text-[#cfcfcf] hover:border-[#ffcc33]/40"
             }`}
           >
-            {f === "all" ? "Tümü" : f === "assigned" ? "Aktif" : "Tamamlanan"}
-          </button>
+            {item.label}
+          </motion.button>
         ))}
       </div>
 
-      <div className="rounded-xl border border-yellow-500/30 bg-black/60 backdrop-blur-sm overflow-x-auto">
+      <GlassCard variant="default" className="p-0 overflow-hidden">
         {isLoading ? (
-          <div className="p-4 text-yellow-200">Yükleniyor...</div>
+          <div className="p-6 text-center text-[#cfcfcf]">Rezervasyonlar yükleniyor...</div>
         ) : rows.length === 0 ? (
-          <div className="p-4 text-yellow-200">Gösterilecek rezervasyon yok.</div>
+          <div className="p-6 text-center text-[#cfcfcf]">Hiç veri bulunamadı. İlk rezervasyonunuzu bekliyoruz.</div>
         ) : (
-          <table className="min-w-full text-sm">
-            <thead className="text-gray-300">
-              <tr className="text-left">
-                <th className="p-3">Tarih</th>
-                <th className="p-3">Kalkış</th>
-                <th className="p-3">Varış</th>
-                <th className="p-3">Durum</th>
-                <th className="p-3">Ödeme</th>
-                <th className="p-3">İşlem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-yellow-500/10">
-                  <td className="p-3">{new Date(r.pickup_time || r.created_at).toLocaleString()}</td>
-                  <td className="p-3">{r.pickup_location}</td>
-                  <td className="p-3">{r.dropoff_location}</td>
-                  <td className="p-3">{statusBadge(r.status)}</td>
-                  <td className="p-3">{r.payment_status === "paid" ? "Ödendi" : "Beklemede"}</td>
-                  <td className="p-3">{renderActions(r)}</td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-[#888] uppercase text-xs tracking-[0.3em] bg-[#050505]">
+                <tr>
+                  <th className="px-5 py-3 text-left">Tarih</th>
+                  <th className="px-5 py-3 text-left">Kalkış</th>
+                  <th className="px-5 py-3 text-left">Varış</th>
+                  <th className="px-5 py-3 text-left">Durum</th>
+                  <th className="px-5 py-3 text-left">Ödeme</th>
+                  <th className="px-5 py-3 text-left">İşlem</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((reservation) => (
+                  <tr key={reservation.id} className="border-t border-[#ffcc33]/10">
+                    <td className="px-5 py-4 text-[#cfcfcf]">
+                      {new Date(reservation.pickup_time || reservation.created_at).toLocaleString("tr-TR")}
+                    </td>
+                    <td className="px-5 py-4 text-white">{reservation.pickup_location}</td>
+                    <td className="px-5 py-4 text-white">{reservation.dropoff_location}</td>
+                    <td className="px-5 py-4">
+                      <StatusBadge status={statusMap[reservation.status] || "pending"} size="sm" />
+                    </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs ${
+                          reservation.payment_status === "paid"
+                            ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-200 border border-amber-500/20"
+                        }`}
+                      >
+                        {reservation.payment_status === "paid" ? "Ödendi" : "Bekliyor"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {reservation.status === "assigned" && (
+                        <button
+                          onClick={() => updateStatus(reservation.id, "in_progress")}
+                          className="px-3 py-1.5 rounded-xl border border-[#ffcc33]/40 text-[#ffcc33] hover:bg-[#ffcc33]/10 text-xs"
+                        >
+                          Sürüşü Başlat
+                        </button>
+                      )}
+                      {reservation.status === "in_progress" && (
+                        <button
+                          onClick={() => updateStatus(reservation.id, "completed")}
+                          className="px-3 py-1.5 rounded-xl border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/10 text-xs"
+                        >
+                          Tamamla
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </GlassCard>
     </div>
   );
 }

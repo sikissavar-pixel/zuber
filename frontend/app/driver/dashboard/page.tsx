@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Car,
@@ -15,32 +15,14 @@ import {
   Hotel,
   MapPin,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { getSocket } from "@/lib/socket";
+import api from "@/lib/api";
 import type { Reservation } from "@/hooks/useReservations";
 import { GlassCard, ParticleBackground, GradientText, PulsingDot } from "@/components/driver/ui";
 import { PremiumStatCard, QuickActionCard } from "@/components/driver/cards";
 import { LiveFeedCard, LiveFeedHeader, EmptyFeedState } from "@/components/driver/live-feed";
-
-const PLACEHOLDER_RESERVATION: Reservation = {
-  id: 0,
-  guest_name: "VIP Misafir",
-  pickup_location: "Bosphorus Palace Hotel",
-  dropoff_location: "IST Havalimanı",
-  pickup_time: new Date().toISOString(),
-  status: "pending",
-  payment_status: "unpaid",
-  created_at: new Date().toISOString(),
-  payment_reference: null,
-  total_amount: 0,
-};
-
-const PLACEHOLDER_FEED: Reservation[] = Array.from({ length: 4 }).map((_, i) => ({
-  ...PLACEHOLDER_RESERVATION,
-  id: i + 1,
-  pickup_location: i % 2 ? "Çırağan Palace" : "Swissôtel",
-  dropoff_location: i % 2 ? "SAW Havalimanı" : "IST Havalimanı",
-  pickup_time: new Date(Date.now() + i * 3_600_000).toISOString(),
-}));
 
 type NotificationEntry = {
   id: string;
@@ -50,67 +32,105 @@ type NotificationEntry = {
   status?: "success" | "warning" | "info";
 };
 
+type DriverEarningsResponse = {
+  total: number;
+  monthly: { month: string; amount: number }[];
+};
+
+type LiveFeedReservation = Reservation & { base_price?: number | string };
+
+const relativeFormatter = new Intl.RelativeTimeFormat("tr-TR", { numeric: "auto" });
+
+function formatRelativeTime(value?: string) {
+  if (!value) return "—";
+  const target = new Date(value);
+  const now = Date.now();
+  const diff = target.getTime() - now;
+  const abs = Math.abs(diff);
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (abs < minute) return "az önce";
+  if (abs < hour) {
+    const minutes = Math.round(diff / minute);
+    return relativeFormatter.format(minutes, "minute");
+  }
+  if (abs < day) {
+    const hours = Math.round(diff / hour);
+    return relativeFormatter.format(hours, "hour");
+  }
+  const days = Math.round(diff / day);
+  return relativeFormatter.format(days, "day");
+}
+
+function sumAmounts(reservations: Reservation[], predicate: (r: Reservation) => boolean) {
+  return reservations.reduce((total, reservation) => {
+    if (!predicate(reservation)) return total;
+    const numeric = Number(reservation.total_amount);
+    return total + (isNaN(numeric) ? 0 : numeric);
+  }, 0);
+}
+
 export default function DriverDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const name = user?.full_name || "Sürücü";
-  const [feed, setFeed] = useState<Reservation[]>([]);
-  const [stats, setStats] = useState({
-    dailyEarnings: 2300,
-    pendingPayments: 1,
-    notifications: 2,
+
+  const { data: reservationsData = [], isLoading: isLoadingReservations } = useQuery<Reservation[]>({
+    queryKey: ["driver", "dashboard", "reservations"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/driver/reservations");
+      return Array.isArray(data) ? data : [];
+    },
+    refetchInterval: 15_000,
+    staleTime: 10_000,
   });
-  const [notifications, setNotifications] = useState<NotificationEntry[]>([
-    {
-      id: "n1",
-      title: "Yeni VIP Transfer",
-      message: "The Peninsula → IST, 15 dakika içinde hazır olun",
-      time: "2 dk önce",
-      status: "info",
+
+  const { data: earningsData } = useQuery<DriverEarningsResponse>({
+    queryKey: ["driver", "dashboard", "earnings"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/driver/earnings");
+      return data;
     },
-    {
-      id: "n2",
-      title: "Ödeme Onayı",
-      message: "QR doğrulama bekleyen sürüşünüz var",
-      time: "1 saat önce",
-      status: "warning",
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  const { data: openReservationsData } = useQuery<LiveFeedReservation[]>({
+    queryKey: ["driver", "dashboard", "feed"],
+    queryFn: async () => {
+      const { data } = await api.get("/api/driver/open-reservations");
+      return Array.isArray(data) ? data : [];
     },
-  ]);
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  const [liveFeed, setLiveFeed] = useState<LiveFeedReservation[]>([]);
+
+  useEffect(() => {
+    if (openReservationsData) {
+      setLiveFeed(openReservationsData);
+    }
+  }, [openReservationsData]);
 
   useEffect(() => {
     const socket = getSocket();
-
     const onCreated = (payload: any) => {
-      if (!payload) return;
-      if (payload.status === "pending" && !payload.driver_id) {
-        setFeed((prev) => {
-          const exists = prev.some((r) => r.id === payload.id);
-          const next = exists
-            ? prev
-            : [
-                {
-                  ...PLACEHOLDER_RESERVATION,
-                  ...payload,
-                },
-                ...prev,
-              ];
-          return next.slice(0, 10);
-        });
-        setNotifications((prev) => {
-          const entry: NotificationEntry = {
-            id: `socket-${payload.id}`,
-            title: "Yeni rezervasyon",
-            message: `${payload.pickup_location} → ${payload.dropoff_location}`,
-            time: "Şimdi",
-            status: "info",
-          };
-          return [entry, ...prev].slice(0, 4);
-        });
-      }
+      if (!payload || payload.driver_id) return;
+      if (payload.status !== "pending" && payload.status !== "open_bid") return;
+      setLiveFeed((prev) => {
+        if (prev.some((item) => item.id === payload.id)) return prev;
+        const next: LiveFeedReservation = {
+          ...payload,
+        };
+        return [next, ...prev].slice(0, 12);
+      });
     };
-
     const onAssigned = (payload: any) => {
-      if (!payload) return;
-      setFeed((prev) => prev.filter((r) => r.id !== payload.id));
+      if (!payload?.id) return;
+      setLiveFeed((prev) => prev.filter((item) => item.id !== Number(payload.id)));
     };
 
     socket.on("reservation_created", onCreated);
@@ -121,16 +141,106 @@ export default function DriverDashboard() {
     };
   }, []);
 
-  const activeReservation = useMemo(() => feed[0] ?? PLACEHOLDER_RESERVATION, [feed]);
-  const liveFeedItems = feed.length ? feed : PLACEHOLDER_FEED;
+  const todaysEarnings = useMemo(
+    () =>
+      sumAmounts(reservationsData, (reservation) => {
+        if (reservation.status !== "completed" && reservation.status !== "in_progress") return false;
+        const date = new Date(reservation.pickup_time || reservation.created_at);
+        const now = new Date();
+        return (
+          date.getDate() === now.getDate() &&
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()
+        );
+      }),
+    [reservationsData]
+  );
+
+  const pendingPayments = useMemo(
+    () => reservationsData.filter((reservation) => reservation.payment_status !== "paid").length,
+    [reservationsData]
+  );
+
+  const awaitingQr = useMemo(
+    () => reservationsData.filter((reservation) => reservation.status === "in_progress").length,
+    [reservationsData]
+  );
+
+  const completedToday = useMemo(
+    () =>
+      reservationsData.filter((reservation) => {
+        if (reservation.status !== "completed") return false;
+        const pickup = new Date(reservation.pickup_time || reservation.created_at);
+        const now = new Date();
+        return pickup.toDateString() === now.toDateString();
+      }).length,
+    [reservationsData]
+  );
+
+  const upcomingReservations = useMemo(
+    () =>
+      [...reservationsData]
+        .filter((reservation) => ["assigned", "in_progress"].includes(reservation.status))
+        .sort(
+          (a, b) =>
+            new Date(a.pickup_time || a.created_at).getTime() - new Date(b.pickup_time || b.created_at).getTime()
+        ),
+    [reservationsData]
+  );
+
+  const activeReservation = upcomingReservations[0];
+
+  const notificationEntries = useMemo<NotificationEntry[]>(() => {
+    if (!reservationsData.length) return [];
+    return [...reservationsData]
+      .sort(
+        (a, b) =>
+          new Date(b.created_at || b.pickup_time).getTime() - new Date(a.created_at || a.pickup_time).getTime()
+      )
+      .slice(0, 4)
+      .map((reservation) => ({
+        id: `reservation-${reservation.id}`,
+        title:
+          reservation.status === "completed"
+            ? "Sürüş tamamlandı"
+            : reservation.status === "in_progress"
+            ? "Sürüş devam ediyor"
+            : "Yeni rezervasyon",
+        message: `${reservation.pickup_location} → ${reservation.dropoff_location}`,
+        time: formatRelativeTime(reservation.pickup_time || reservation.created_at),
+        status:
+          reservation.status === "completed"
+            ? "success"
+            : reservation.status === "in_progress"
+            ? "info"
+            : "warning",
+      }));
+  }, [reservationsData]);
 
   const quickActions = useMemo(
     () => [
-      { icon: CalendarDays, title: "Aktif Rezervasyonlar", href: "/driver/reservations", badge: feed.length || undefined },
-      { icon: QrCode, title: "QR Onay / Sürüş Bitişi", href: "/driver/qr-verification" },
-      { icon: Star, title: "Yorumlarım", href: "/driver/feedback", badge: 4.8 },
+      {
+        icon: CalendarDays,
+        title: "Aktif Rezervasyonlar",
+        description: "Atanmış tüm sürüşler",
+        href: "/driver/reservations",
+        badge: upcomingReservations.length || undefined,
+      },
+      {
+        icon: QrCode,
+        title: "QR Onay / Sürüş Bitişi",
+        description: "QR doğrulama bekleyenler",
+        href: "/driver/qr-verification",
+        badge: awaitingQr || undefined,
+      },
+      {
+        icon: Star,
+        title: "Yorumlarım",
+        description: "Sürüş sonrası geri bildirim",
+        href: "/driver/feedback",
+      },
     ],
-    [feed.length]
+    [awaitingQr, upcomingReservations.length]
   );
 
   const renderGreeting = () => {
@@ -150,7 +260,7 @@ export default function DriverDashboard() {
   };
 
   const renderNotifications = () => (
-    <GlassCard variant="default" glowIntensity="subtle" className="p-6">
+    <GlassCard variant="default" glowIntensity="subtle" className="p-6 min-h-full">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-[#ffcc33]" />
@@ -158,30 +268,40 @@ export default function DriverDashboard() {
         </div>
         <span className="text-xs uppercase tracking-[0.4em] text-[#777]">canlı</span>
       </div>
-      <div className="space-y-3">
-        {notifications.slice(0, 2).map((note) => (
-          <motion.div
-            key={note.id}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="relative rounded-2xl border border-[#ffcc33]/25 bg-[#050505]/80 px-4 py-3"
-          >
-            <div className="flex items-center justify-between text-sm">
-              <p className="text-[#f5f5f5] font-semibold">{note.title}</p>
-              <span className="text-xs text-[#888]">{note.time}</span>
-            </div>
-            <p className="text-xs text-[#bcbcbc] mt-1">{note.message}</p>
-            {note.status === "warning" && (
-              <span className="absolute -left-2 top-1 h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-            )}
-            {note.status === "info" && (
-              <span className="absolute -left-2 top-1 h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-            )}
-          </motion.div>
-        ))}
-      </div>
+      {notificationEntries.length === 0 ? (
+        <EmptyState message="Hiç veri bulunamadı. İlk rezervasyonunuzu bekliyoruz." />
+      ) : (
+        <div className="space-y-3">
+          {notificationEntries.map((note) => (
+            <motion.div
+              key={note.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="relative rounded-2xl border border-[#ffcc33]/25 bg-[#050505]/80 px-4 py-3"
+            >
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-[#f5f5f5] font-semibold">{note.title}</p>
+                <span className="text-xs text-[#888]">{note.time}</span>
+              </div>
+              <p className="text-xs text-[#bcbcbc] mt-1">{note.message}</p>
+              {note.status === "warning" && (
+                <span className="absolute -left-2 top-1 h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              )}
+              {note.status === "info" && (
+                <span className="absolute -left-2 top-1 h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              )}
+              {note.status === "success" && (
+                <span className="absolute -left-2 top-1 h-2 w-2 rounded-full bg-emerald-500" />
+              )}
+            </motion.div>
+          ))}
+        </div>
+      )}
     </GlassCard>
   );
+
+  const liveFeedItems = liveFeed;
+  const handleAccept = useCallback(() => router.push("/driver/open-reservations"), [router]);
 
   return (
     <div className="min-h-screen bg-[#020202] text-white font-inter relative overflow-hidden">
@@ -210,28 +330,34 @@ export default function DriverDashboard() {
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <ActiveReservationCard reservation={activeReservation} />
+          <ActiveReservationCard reservation={activeReservation} isLoading={isLoadingReservations} />
           <PremiumStatCard
             icon={Wallet}
             title="Günlük Kazanç"
-            numericValue={stats.dailyEarnings}
+            numericValue={todaysEarnings}
             suffix="₺"
-            trend="up"
-            trendValue="%12"
+            trend={todaysEarnings > 0 ? "up" : "neutral"}
+            trendValue={todaysEarnings > 0 ? "%+5" : "%0"}
             variant="success"
             delay={1}
           />
           <PremiumStatCard
             icon={Clock}
             title="Bekleyen Ödeme"
-            subtext={`QR onayı bekleyen ${stats.pendingPayments} işlem`}
+            value={`${pendingPayments} adet`}
+            subtext={
+              pendingPayments
+                ? `QR onayı bekleyen ${awaitingQr || 0} sürüş`
+                : "Tüm ödemeler kapatıldı"
+            }
             variant="warning"
             delay={2}
           />
           <PremiumStatCard
             icon={Bell}
-            title="Bildirimler"
-            subtext={`Son 24 saatte ${stats.notifications} uyarı`}
+            title="Güncel Hareket"
+            value={`${completedToday} tamamlandı`}
+            subtext={`Son 24 saatte ${notificationEntries.length || 0} güncelleme`}
             variant="default"
             delay={3}
           />
@@ -243,7 +369,7 @@ export default function DriverDashboard() {
               <ArrowRight className="w-4 h-4 text-[#ffcc33]" />
               <h3 className="font-cinzel text-lg">Hızlı Erişim</h3>
             </div>
-            <span className="text-xs text-[#777]">her güncellemede anında erişim</span>
+            <span className="text-xs text-[#777]">Tüm kritik rota ve işlemler</span>
           </div>
           <div className="overflow-x-auto -mx-2 px-2 pb-2">
             <div className="flex gap-3 min-w-max">
@@ -264,7 +390,10 @@ export default function DriverDashboard() {
           <GlassCard variant="premium" className="lg:col-span-2">
             <LiveFeedHeader count={liveFeedItems.length} />
             {liveFeedItems.length === 0 ? (
-              <EmptyFeedState />
+              <div className="space-y-4">
+                <EmptyFeedState />
+                <EmptyState message="Hiç veri bulunamadı. İlk rezervasyonunuzu bekliyoruz." />
+              </div>
             ) : (
               <div className="overflow-x-auto pb-3 -mx-2 px-2">
                 <div className="flex gap-4 snap-x snap-mandatory">
@@ -272,7 +401,7 @@ export default function DriverDashboard() {
                     <LiveFeedCard
                       key={`${reservation.id}-${index}`}
                       reservation={reservation}
-                      onAccept={() => {}}
+                      onAccept={handleAccept}
                       index={index}
                       variant="carousel"
                     />
@@ -287,7 +416,32 @@ export default function DriverDashboard() {
   );
 }
 
-function ActiveReservationCard({ reservation }: { reservation: Reservation }) {
+function ActiveReservationCard({ reservation, isLoading }: { reservation?: Reservation; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <GlassCard variant="premium" glowIntensity="strong" className="p-6">
+        <div className="animate-pulse space-y-3">
+          <div className="h-4 bg-white/20 rounded w-2/3" />
+          <div className="h-6 bg-white/15 rounded" />
+          <div className="h-6 bg-white/15 rounded" />
+          <div className="h-5 bg-white/10 rounded" />
+        </div>
+      </GlassCard>
+    );
+  }
+
+  if (!reservation) {
+    return (
+      <GlassCard variant="premium" glowIntensity="strong" className="p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Car className="w-5 h-5 text-[#050301]" />
+          <p className="text-sm uppercase tracking-[0.4em] text-[#050301]">aktif rezervasyon</p>
+        </div>
+        <EmptyState message="Hiç veri bulunamadı. İlk rezervasyonunuzu bekliyoruz." dark />
+      </GlassCard>
+    );
+  }
+
   return (
     <GlassCard variant="premium" glowIntensity="strong" className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -295,7 +449,12 @@ function ActiveReservationCard({ reservation }: { reservation: Reservation }) {
           <Car className="w-5 h-5 text-[#050301]" />
           <p className="text-sm uppercase tracking-[0.4em] text-[#050301]">aktif rezervasyon</p>
         </div>
-        <span className="text-xs text-[#555]">{new Date(reservation.pickup_time || reservation.created_at || Date.now()).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
+        <span className="text-xs text-[#555]">
+          {new Date(reservation.pickup_time || reservation.created_at || Date.now()).toLocaleTimeString("tr-TR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
       </div>
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-[#050301] font-semibold text-lg">
@@ -307,10 +466,24 @@ function ActiveReservationCard({ reservation }: { reservation: Reservation }) {
           <span>{reservation.dropoff_location || "Varış bekleniyor"}</span>
         </div>
         <div className="flex items-center justify-between text-sm text-[#4a3b13] border-t border-[#ffcc33]/30 pt-3">
-          <span>VIP misafir</span>
-          <span className="font-semibold text-[#ff8c00]">Hazır</span>
+          <span>{reservation.guest_name || "VIP misafir"}</span>
+          <span className="font-semibold text-[#ff8c00]">
+            {reservation.status === "in_progress" ? "Sürüşte" : reservation.status === "assigned" ? "Hazır" : "Takipte"}
+          </span>
         </div>
       </div>
     </GlassCard>
+  );
+}
+
+function EmptyState({ message, dark = false }: { message: string; dark?: boolean }) {
+  return (
+    <div
+      className={`rounded-2xl border border-dashed ${dark ? "border-[#050301]/30 bg-white/40 text-[#050301]" : "border-[#ffcc33]/30 bg-[#050505]/60 text-[#c9c9c9]"} px-4 py-6 text-sm text-center`}
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </div>
   );
 }

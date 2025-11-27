@@ -14,16 +14,10 @@ type ChatMessage = {
   timestamp: number;
 };
 
-const INITIAL_MESSAGES: ChatMessage[] = [
-  { id: "m1", from: "partner", text: "Yeni rezervasyon için hazır mısınız?", timestamp: Date.now() - 6 * 60_000 },
-  { id: "m2", from: "driver", text: "Evet, 10 dakika içinde lokasyondayım.", timestamp: Date.now() - 5 * 60_000 },
-];
-
 export default function DriverChatPage() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef(getSocket());
 
@@ -79,32 +73,6 @@ export default function DriverChatPage() {
       sendMessage();
     }
   };
-
-  const loadOlderMessages = useCallback(() => {
-    if (isLoadingHistory) return;
-    setIsLoadingHistory(true);
-    setTimeout(() => {
-      setMessages((prev) => [
-        {
-          id: `old-${prev.length}`,
-          from: "partner",
-          text: "Geçmiş mesaj yüklendi",
-          timestamp: Date.now() - 8 * 60_000,
-        },
-        ...prev,
-      ]);
-      setIsLoadingHistory(false);
-    }, 500);
-  }, [isLoadingHistory]);
-
-  const handleScroll = useCallback(
-    (event: React.UIEvent<HTMLDivElement>) => {
-      if (event.currentTarget.scrollTop < 40 && !isLoadingHistory) {
-        loadOlderMessages();
-      }
-    },
-    [isLoadingHistory, loadOlderMessages]
-  );
 
   const rightPanel = useMemo(
     () => (
@@ -162,19 +130,18 @@ export default function DriverChatPage() {
               </div>
             </div>
 
-            <div
-              ref={chatRef}
-              className="flex-1 overflow-y-auto space-y-3 px-5 py-4 scroll-smooth"
-              onScroll={handleScroll}
-            >
-              {isLoadingHistory && (
-                <div className="text-center text-xs text-[#777] py-2">Geçmiş mesajlar yükleniyor...</div>
-              )}
+            <div ref={chatRef} className="flex-1 overflow-y-auto space-y-3 px-5 py-4 scroll-smooth">
               <AnimatePresence>
                 {messages.map((message) => (
                   <ChatBubble key={message.id} message={message} />
                 ))}
               </AnimatePresence>
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-center py-8 text-[#777] text-sm">
+                  <MessageSquare className="w-6 h-6 mb-3 text-[#ffcc33]" />
+                  Henüz mesaj yok. Partnerinizle iletişime geçmek için hemen yazın.
+                </div>
+              )}
             </div>
 
             <div className="px-4 py-3 border-t border-[#ffcc33]/20 bg-[#080808]/80">
