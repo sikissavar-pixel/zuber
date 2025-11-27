@@ -35,11 +35,14 @@ export default function AdminReservations() {
     };
   }, [qc]);
 
-  const currentList = activeView === "live" ? liveReservations : allReservations;
+  const safeAllReservations = Array.isArray(allReservations) ? allReservations : [];
+  const safeLiveReservations = Array.isArray(liveReservations) ? liveReservations : [];
+
+  const currentList = activeView === "live" ? safeLiveReservations : safeAllReservations;
   const isLoading = activeView === "live" ? liveLoading : allLoading;
 
   const filteredReservations = useMemo(() => {
-    let filtered = currentList;
+    let filtered = Array.isArray(currentList) ? currentList : [];
     if (statusFilter !== "all") {
       filtered = filtered.filter((r: any) => r.status === statusFilter);
     }
@@ -50,7 +53,7 @@ export default function AdminReservations() {
       });
     }
     return filtered;
-  }, [currentList, statusFilter, searchTerm]);
+  }, [safeAllReservations, safeLiveReservations, activeView, statusFilter, searchTerm]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};

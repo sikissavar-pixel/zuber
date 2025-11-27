@@ -7,24 +7,28 @@ import clsx from "clsx";
 
 export default function AdminSecurity() {
   const { data: loginAttempts = [], isLoading: attemptsLoading } = useSecurityLoginAttempts();
-  const { data: sessions = [], isLoading: sessionsLoading } = useSecuritySessions();
+  const { data: sessions = {}, isLoading: sessionsLoading } = useSecuritySessions();
   const { data: blockedIPs = [], isLoading: blockedLoading } = useSecurityBlockedIPs();
   const [activeTab, setActiveTab] = useState<"attempts" | "sessions" | "blocked">("attempts");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const currentData = activeTab === "attempts" ? loginAttempts : activeTab === "sessions" ? sessions : blockedIPs;
+  const safeLoginAttempts = Array.isArray(loginAttempts) ? loginAttempts : [];
+  const safeSessions = Array.isArray(sessions?.items) ? sessions.items : [];
+  const safeBlockedIPs = Array.isArray(blockedIPs) ? blockedIPs : [];
+
+  const currentData = activeTab === "attempts" ? safeLoginAttempts : activeTab === "sessions" ? safeSessions : safeBlockedIPs;
   const isLoading = activeTab === "attempts" ? attemptsLoading : activeTab === "sessions" ? sessionsLoading : blockedLoading;
 
   const filteredData = useMemo(() => {
     if (!searchTerm.trim()) return currentData;
     const term = searchTerm.toLowerCase();
-    return currentData.filter((item: any) => {
+    return (Array.isArray(currentData) ? currentData : []).filter((item: any) => {
       return [item.ip, item.email, item.user_id?.toString(), item.device, item.user_agent].some((v) => v?.toLowerCase().includes(term));
     });
   }, [currentData, searchTerm]);
 
-  const failedAttempts = useMemo(() => loginAttempts.filter((a: any) => a.success === false).length, [loginAttempts]);
-  const activeSessions = useMemo(() => sessions.filter((s: any) => s.active !== false).length, [sessions]);
+  const failedAttempts = useMemo(() => safeLoginAttempts.filter((a: any) => a.success === false).length, [safeLoginAttempts]);
+  const activeSessions = useMemo(() => (sessions?.active || safeSessions.filter((s: any) => s.active !== false).length), [sessions, safeSessions]);
 
   return (
     <div className="space-y-6">

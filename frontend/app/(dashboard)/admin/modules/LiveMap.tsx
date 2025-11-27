@@ -24,9 +24,22 @@ export default function AdminLiveMap() {
   const [mapLoading, setMapLoading] = useState(true);
 
   useEffect(() => {
-    if (Array.isArray(initialLocations)) {
-      setDrivers(initialLocations);
-    } else {
+    try {
+      if (Array.isArray(initialLocations) && initialLocations.length > 0) {
+        const validLocations = initialLocations.filter((loc: any) => 
+          loc && 
+          typeof loc.driver_id === "number" && 
+          typeof loc.lat === "number" && 
+          typeof loc.lng === "number" &&
+          !isNaN(loc.lat) && 
+          !isNaN(loc.lng)
+        );
+        setDrivers(validLocations);
+      } else {
+        setDrivers([]);
+      }
+    } catch (err) {
+      console.error("Error setting driver locations:", err);
       setDrivers([]);
     }
   }, [initialLocations]);
@@ -79,7 +92,13 @@ export default function AdminLiveMap() {
 
         if (Array.isArray(drivers) && drivers.length > 0) {
           drivers.forEach((driver) => {
-            if (!driver || typeof driver.lat !== "number" || typeof driver.lng !== "number") return;
+            if (!driver || 
+                typeof driver.lat !== "number" || 
+                typeof driver.lng !== "number" ||
+                isNaN(driver.lat) || 
+                isNaN(driver.lng) ||
+                driver.lat < -90 || driver.lat > 90 ||
+                driver.lng < -180 || driver.lng > 180) return;
             
             const statusColor = driver.status === "on_ride" ? "#ef4444" : driver.status === "idle" ? "#10b981" : "#6b7280";
 

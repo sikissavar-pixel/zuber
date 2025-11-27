@@ -104,6 +104,8 @@ export default function DriverApplyPage() {
         vehicle_year: form.vehicle_year,
         plate_number: form.plate_number.toUpperCase(),
         fuel_type: form.fuel_type,
+        driver_license_image_url: "",
+        vehicle_registration_image_url: "",
       });
       toast.success("Başvurunuz alınmıştır. Onay sonrası bilgilendirileceksiniz.");
       setTimeout(() => router.push("/"), 3000);

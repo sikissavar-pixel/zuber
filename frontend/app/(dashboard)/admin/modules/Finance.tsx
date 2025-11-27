@@ -11,8 +11,20 @@ export default function AdminFinance() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "payment" | "refund" | "commission">("all");
 
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const safeSummary = summary || {
+    daily_revenue: 0,
+    weekly_revenue: 0,
+    monthly_revenue: 0,
+    yearly_revenue: 0,
+    total_transactions: 0,
+    total_wallet_balance: 0,
+    driver_earnings: 0,
+    partner_earnings: 0,
+  };
+
   const filteredTransactions = useMemo(() => {
-    let filtered = transactions;
+    let filtered = safeTransactions;
     if (typeFilter !== "all") {
       filtered = filtered.filter((t: any) => t.type === typeFilter);
     }
@@ -23,26 +35,26 @@ export default function AdminFinance() {
       });
     }
     return filtered;
-  }, [transactions, typeFilter, searchTerm]);
+  }, [safeTransactions, typeFilter, searchTerm]);
 
   const stats = [
     {
       title: "Toplam Cüzdan Bakiyesi",
-      value: summary?.total_wallet_balance || 0,
+      value: safeSummary.total_wallet_balance || 0,
       icon: DollarSign,
       accent: "gold",
       loading: summaryLoading,
     },
     {
       title: "Sürücü Kazançları",
-      value: summary?.driver_earnings || 0,
+      value: safeSummary.driver_earnings || 0,
       icon: TrendingUp,
       accent: "emerald",
       loading: summaryLoading,
     },
     {
       title: "Partner Kazançları",
-      value: summary?.partner_earnings || 0,
+      value: safeSummary.partner_earnings || 0,
       icon: TrendingUp,
       accent: "amber",
       loading: summaryLoading,
