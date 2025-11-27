@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Navbar from "../../components/Navbar";
 import { useApplyDriver } from "@/hooks/useApplications";
 import { useState } from "react";
+import api, { setAuthToken } from "@/lib/api";
 
 function validateTC(tc: string): boolean {
   if (!tc || tc.length !== 11 || !/^\d+$/.test(tc) || tc[0] === '0') return false;
@@ -26,6 +27,17 @@ function validatePhone(phone: string): boolean {
 
 function validatePlate(plate: string): boolean {
   return /^[0-9]{2}[A-Z]{1,3}[0-9]{2,4}$/i.test(plate);
+}
+
+function validateFile(file: File): string | null {
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+  if (!allowedTypes.includes(file.type)) {
+    return "Dosya formatı geçersiz. JPG, PNG veya PDF yükleyiniz.";
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    return "Dosya boyutu 5MB'dan büyük olamaz.";
+  }
+  return null;
 }
 
 export default function DriverApplyPage() {
@@ -50,6 +62,11 @@ export default function DriverApplyPage() {
     fuel_type: "diesel",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [driverLicenseFile, setDriverLicenseFile] = useState<File | null>(null);
+  const [vehicleRegistrationFile, setVehicleRegistrationFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [driverLicenseUrl, setDriverLicenseUrl] = useState<string>("");
+  const [vehicleRegistrationUrl, setVehicleRegistrationUrl] = useState<string>("");
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const name = e.target.name;
@@ -64,20 +81,93 @@ export default function DriverApplyPage() {
     }
   };
 
+  const uploadFile = async (file: File): Promise<string> => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      setAuthToken(token);
+    }
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await api.post("/api/uploads/document", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    
+    if (response.data.success && response.data.url) {
+      return response.data.url;
+    }
+    throw new Error("Upload failed");
+  };
+
+  const handleDriverLicenseChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    setDriverLicenseFile(file);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setDriverLicenseUrl(url);
+      toast.success("Ehliyet fotoğrafı yüklendi");
+    } catch (err: any) {
+      toast.error("Yükleme başarısız: " + (err?.response?.data?.detail || err?.message));
+      setDriverLicenseFile(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleVehicleRegistrationChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    setVehicleRegistrationFile(file);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setVehicleRegistrationUrl(url);
+      toast.success("Ruhsat fotoğrafı yüklendi");
+    } catch (err: any) {
+      toast.error("Yükleme başarısız: " + (err?.response?.data?.detail || err?.message));
+      setVehicleRegistrationFile(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (form.full_name.length < 3) newErrors.full_name = "Ad soyad en az 3 karakter olmalıdır";
     if (!validateTC(form.tc_no)) newErrors.tc_no = "Geçersiz TC Kimlik No";
     const currentYear = new Date().getFullYear();
+    const age = currentYear - form.birth_year;
+    if (age < 18) newErrors.birth_year = "18 yaşından küçükler başvuru yapamaz";
     if (form.birth_year < 1955 || form.birth_year > 2005) newErrors.birth_year = "Doğum yılı 1955-2005 arasında olmalıdır";
     if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) newErrors.email = "Geçerli bir e-posta adresi giriniz";
-    if (!validatePhone(form.phone)) newErrors.phone = "Geçersiz telefon numarası formatı";
+    if (!validatePhone(form.phone)) newErrors.phone = "Geçersiz telefon numarası formatı (+90 formatında giriniz)";
     if (!form.city) newErrors.city = "Şehir gereklidir";
     if (form.driver_license_year > currentYear) newErrors.driver_license_year = "Ehliyet yılı gelecekte olamaz";
     if (form.vehicle_year < 2008) newErrors.vehicle_year = "Araç yılı 2008 veya sonrası olmalıdır";
-    if (!validatePlate(form.plate_number)) newErrors.plate_number = "Geçersiz plaka formatı";
+    if (!validatePlate(form.plate_number)) newErrors.plate_number = "Geçersiz plaka formatı (örn: 34ABC123)";
     if (!form.kvkk_consent) newErrors.kvkk_consent = "KVKK onayı zorunludur";
     if (!form.data_processing_consent) newErrors.data_processing_consent = "Veri işleme onayı zorunludur";
+    if (!driverLicenseUrl) newErrors.driver_license_image_url = "Ehliyet fotoğrafı zorunludur";
+    if (!vehicleRegistrationUrl) newErrors.vehicle_registration_image_url = "Ruhsat fotoğrafı zorunludur";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -104,8 +194,8 @@ export default function DriverApplyPage() {
         vehicle_year: form.vehicle_year,
         plate_number: form.plate_number.toUpperCase(),
         fuel_type: form.fuel_type,
-        driver_license_image_url: "",
-        vehicle_registration_image_url: "",
+        driver_license_image_url: driverLicenseUrl,
+        vehicle_registration_image_url: vehicleRegistrationUrl,
       });
       toast.success("Başvurunuz alınmıştır. Onay sonrası bilgilendirileceksiniz.");
       setTimeout(() => router.push("/"), 3000);
@@ -145,7 +235,7 @@ export default function DriverApplyPage() {
             </div>
             <div>
               <label className="block text-sm text-yellow-200 mb-1">Telefon *</label>
-              <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" name="phone" value={form.phone} onChange={onChange} required />
+              <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" name="phone" placeholder="+90 555 123 4567" value={form.phone} onChange={onChange} required />
               {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
             </div>
             <div>
@@ -182,7 +272,7 @@ export default function DriverApplyPage() {
             </div>
             <div>
               <label className="block text-sm text-yellow-200 mb-1">Plaka *</label>
-              <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus uppercase" name="plate_number" value={form.plate_number} onChange={onChange} required />
+              <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus uppercase" name="plate_number" placeholder="34ABC123" value={form.plate_number} onChange={onChange} required />
               {errors.plate_number && <p className="text-red-400 text-xs mt-1">{errors.plate_number}</p>}
             </div>
             <div>
@@ -193,6 +283,18 @@ export default function DriverApplyPage() {
                 <option value="hybrid">Hibrit</option>
                 <option value="electric">Elektrik</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm text-yellow-200 mb-1">Ehliyet Fotoğrafı *</label>
+              <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" onChange={handleDriverLicenseChange} disabled={uploading} className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" required />
+              {driverLicenseUrl && <p className="text-green-400 text-xs mt-1">✓ Yüklendi</p>}
+              {errors.driver_license_image_url && <p className="text-red-400 text-xs mt-1">{errors.driver_license_image_url}</p>}
+            </div>
+            <div>
+              <label className="block text-sm text-yellow-200 mb-1">Ruhsat Fotoğrafı *</label>
+              <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" onChange={handleVehicleRegistrationChange} disabled={uploading} className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" required />
+              {vehicleRegistrationUrl && <p className="text-green-400 text-xs mt-1">✓ Yüklendi</p>}
+              {errors.vehicle_registration_image_url && <p className="text-red-400 text-xs mt-1">{errors.vehicle_registration_image_url}</p>}
             </div>
           </div>
           <div className="space-y-2">
@@ -213,8 +315,8 @@ export default function DriverApplyPage() {
           </div>
           {errors.submit && <p className="text-red-400">{errors.submit}</p>}
           <div className="flex gap-3">
-            <button type="submit" className="btn-shimmer text-black px-6 py-3 rounded-lg" disabled={isPending || !form.kvkk_consent || !form.data_processing_consent}>
-              {isPending ? "Gönderiliyor..." : "Başvuruyu Gönder"}
+            <button type="submit" className="btn-shimmer text-black px-6 py-3 rounded-lg" disabled={isPending || uploading || !form.kvkk_consent || !form.data_processing_consent || !driverLicenseUrl || !vehicleRegistrationUrl}>
+              {isPending ? "Gönderiliyor..." : uploading ? "Yükleniyor..." : "Başvuruyu Gönder"}
             </button>
             <Link href="/"><button type="button" className="bg-zinc-900 text-yellow-300 px-6 py-3 rounded-lg border border-yellow-500/30">İptal</button></Link>
           </div>

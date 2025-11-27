@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Navbar from "../../components/Navbar";
 import { useApplyPartner } from "@/hooks/useApplications";
 import { useState } from "react";
+import api, { setAuthToken } from "@/lib/api";
 
 function validateTC(tc: string): boolean {
   if (!tc || tc.length !== 11 || !/^\d+$/.test(tc) || tc[0] === '0') return false;
@@ -32,6 +33,17 @@ function validatePhone(phone: string): boolean {
   return cleaned.length === 10 && /^\d+$/.test(cleaned);
 }
 
+function validateFile(file: File): string | null {
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+  if (!allowedTypes.includes(file.type)) {
+    return "Dosya formatı geçersiz. JPG, PNG veya PDF yükleyiniz.";
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    return "Dosya boyutu 5MB'dan büyük olamaz.";
+  }
+  return null;
+}
+
 export default function PartnerApplyPage() {
   const router = useRouter();
   const { mutateAsync, isPending } = useApplyPartner();
@@ -40,6 +52,7 @@ export default function PartnerApplyPage() {
     tax_office: "",
     tax_number: "",
     company_type: "Ltd",
+    business_type: "otel",
     contact_full_name: "",
     tc_no: "",
     contact_email: "",
@@ -50,6 +63,9 @@ export default function PartnerApplyPage() {
     commercial_contract_approved: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [signatureDocumentFile, setSignatureDocumentFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [signatureDocumentUrl, setSignatureDocumentUrl] = useState<string>("");
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const name = e.target.name;
@@ -61,6 +77,51 @@ export default function PartnerApplyPage() {
         delete newE[name];
         return newE;
       });
+    }
+  };
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      setAuthToken(token);
+    }
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await api.post("/api/uploads/document", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    
+    if (response.data.success && response.data.url) {
+      return response.data.url;
+    }
+    throw new Error("Upload failed");
+  };
+
+  const handleSignatureDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    setSignatureDocumentFile(file);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setSignatureDocumentUrl(url);
+      toast.success("İmza sirküsü yüklendi");
+    } catch (err: any) {
+      toast.error("Yükleme başarısız: " + (err?.response?.data?.detail || err?.message));
+      setSignatureDocumentFile(null);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -76,6 +137,7 @@ export default function PartnerApplyPage() {
     if (form.total_vehicles < 1) newErrors.total_vehicles = "Araç sayısı en az 1 olmalıdır";
     if (!form.kvkk_consent) newErrors.kvkk_consent = "KVKK onayı zorunludur";
     if (!form.commercial_contract_approved) newErrors.commercial_contract_approved = "Ticari sözleşme onayı zorunludur";
+    if (!signatureDocumentUrl) newErrors.signature_document = "İmza sirküsü yüklemesi zorunludur";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -98,7 +160,7 @@ export default function PartnerApplyPage() {
         fleet_type: form.fleet_type,
         kvkk_consent: form.kvkk_consent,
         commercial_contract_approved: form.commercial_contract_approved,
-        company_documents_image_url: "",
+        company_documents_image_url: signatureDocumentUrl,
       });
       toast.success("Başvurunuz alınmıştır. Onay sonrası bilgilendirileceksiniz.");
       setTimeout(() => router.push("/"), 3000);
@@ -120,6 +182,15 @@ export default function PartnerApplyPage() {
               <label className="block text-sm text-yellow-200 mb-1">Firma Adı *</label>
               <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" name="company_name" value={form.company_name} onChange={onChange} required />
               {errors.company_name && <p className="text-red-400 text-xs mt-1">{errors.company_name}</p>}
+            </div>
+            <div>
+              <label className="block text-sm text-yellow-200 mb-1">Firma Türü *</label>
+              <select className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" name="business_type" value={form.business_type} onChange={onChange} required>
+                <option value="otel">Otel</option>
+                <option value="rezidans">Rezidans</option>
+                <option value="villa">Villa</option>
+                <option value="şirket">Şirket</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm text-yellow-200 mb-1">Vergi Dairesi *</label>
@@ -156,7 +227,7 @@ export default function PartnerApplyPage() {
             </div>
             <div>
               <label className="block text-sm text-yellow-200 mb-1">Telefon *</label>
-              <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" name="contact_phone" value={form.contact_phone} onChange={onChange} required />
+              <input className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" name="contact_phone" placeholder="+90 555 123 4567" value={form.contact_phone} onChange={onChange} required />
               {errors.contact_phone && <p className="text-red-400 text-xs mt-1">{errors.contact_phone}</p>}
             </div>
             <div>
@@ -171,6 +242,12 @@ export default function PartnerApplyPage() {
                 <option value="Standard">Standard</option>
                 <option value="Mixed">Karışık</option>
               </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm text-yellow-200 mb-1">İmza Sirküsü Yükle *</label>
+              <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" onChange={handleSignatureDocumentChange} disabled={uploading} className="w-full rounded-lg bg-black/70 border soft-border px-3 py-2 text-yellow-100 gold-focus" required />
+              {signatureDocumentUrl && <p className="text-green-400 text-xs mt-1">✓ Yüklendi</p>}
+              {errors.signature_document && <p className="text-red-400 text-xs mt-1">{errors.signature_document}</p>}
             </div>
           </div>
           <div className="space-y-2">
@@ -187,8 +264,8 @@ export default function PartnerApplyPage() {
           </div>
           {errors.submit && <p className="text-red-400">{errors.submit}</p>}
           <div className="flex gap-3">
-            <button type="submit" className="btn-shimmer text-black px-6 py-3 rounded-lg" disabled={isPending || !form.kvkk_consent || !form.commercial_contract_approved}>
-              {isPending ? "Gönderiliyor..." : "Başvuruyu Gönder"}
+            <button type="submit" className="btn-shimmer text-black px-6 py-3 rounded-lg" disabled={isPending || uploading || !form.kvkk_consent || !form.commercial_contract_approved || !signatureDocumentUrl}>
+              {isPending ? "Gönderiliyor..." : uploading ? "Yükleniyor..." : "Başvuruyu Gönder"}
             </button>
             <Link href="/"><button type="button" className="bg-zinc-900 text-yellow-300 px-6 py-3 rounded-lg border border-yellow-500/30">İptal</button></Link>
           </div>
