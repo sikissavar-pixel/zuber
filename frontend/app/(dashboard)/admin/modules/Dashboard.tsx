@@ -170,12 +170,13 @@ export default function AdminDashboard() {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {systemHealth.map((item) => {
             const Icon = item.icon;
+            const normalizedStatus = item.status === "online" ? "online" : item.status === "warning" ? "warning" : "offline";
             return (
               <div key={item.label} className="flex items-center gap-3 p-4 rounded-2xl border border-[#3a2a0f] bg-black/40">
                 <Icon className="h-5 w-5 text-[#f5c76a]" />
                 <div className="flex-1">
                   <p className="text-xs text-zinc-400 mb-1">{item.label}</p>
-                  <StatusBadge status={item.status} label={item.status === "online" ? "Aktif" : item.status === "warning" ? "Uyarı" : "Kapalı"} />
+                  <StatusBadge status={normalizedStatus} label={normalizedStatus === "online" ? "Aktif" : normalizedStatus === "warning" ? "Uyarı" : "Kapalı"} />
                 </div>
               </div>
             );
@@ -185,4 +186,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
