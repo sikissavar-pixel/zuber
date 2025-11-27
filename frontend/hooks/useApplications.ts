@@ -53,7 +53,7 @@ export function useAdminPartnerApplications(status: ApplicationStatus = "pending
     queryKey: ["applications", "partners", status],
     queryFn: async () => {
       const { data } = await api.get(`/api/applications/partners${buildStatusQuery(status)}`);
-      return data as any[];
+      return (data?.items || data || []) as any[];
     },
     staleTime: 10_000,
     refetchInterval: 20_000,
@@ -67,7 +67,7 @@ export function useAdminDriverApplications(status: ApplicationStatus = "pending"
     queryKey: ["applications", "drivers", status],
     queryFn: async () => {
       const { data } = await api.get(`/api/applications/drivers${buildStatusQuery(status)}`);
-      return data as any[];
+      return (data?.items || data || []) as any[];
     },
     staleTime: 10_000,
     refetchInterval: 20_000,

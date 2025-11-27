@@ -62,7 +62,8 @@ export default function AdminApplications() {
     try {
       const res = type === "driver" ? await approveDriver.mutateAsync(id) : await approvePartner.mutateAsync(id);
       if (res?.success) {
-        toast.success("Şifre kullanıcıya mail olarak gönderildi.");
+        toast.success("Başvuru onaylandı. Şifre kullanıcıya mail olarak gönderildi.");
+        qc.invalidateQueries({ queryKey: ["applications"] });
       } else {
         toast.error(resolveError({ response: { data: res } }));
       }
@@ -77,8 +78,13 @@ export default function AdminApplications() {
   const handleReject = async (type: ApplicationType, id: number) => {
     setActioning(`reject-${type}-${id}`);
     try {
-      type === "driver" ? await rejectDriver.mutateAsync(id) : await rejectPartner.mutateAsync(id);
-      toast.success("Başvuru reddedildi.");
+      const res = type === "driver" ? await rejectDriver.mutateAsync(id) : await rejectPartner.mutateAsync(id);
+      if (res?.success || res?.status === "rejected") {
+        toast.success("Başvuru reddedildi.");
+        qc.invalidateQueries({ queryKey: ["applications"] });
+      } else {
+        toast.error(resolveError({ response: { data: res } }));
+      }
     } catch (err: any) {
       toast.error(resolveError(err));
     } finally {
@@ -190,6 +196,7 @@ export default function AdminApplications() {
               const email = isDriver ? app.email : app.contact_email;
               const phone = isDriver ? app.phone : app.contact_phone;
               const meta = isDriver ? app.vehicle_plate || app.city : app.city || app.description;
+              const isActioning = actioning === approveKey || actioning === rejectKey;
 
               return (
                 <div key={app.id} className="rounded-2xl border border-[#4a340f]/60 bg-black/40 p-4">
@@ -203,10 +210,10 @@ export default function AdminApplications() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApprove(type, app.id)}
-                        disabled={actioning === approveKey}
+                        disabled={isActioning}
                         className={clsx(
                           "flex-1 rounded-xl border border-[#f5c76a]/60 bg-gradient-to-r from-[#fbd483] to-[#f3b94f] py-2 text-sm font-semibold text-black flex items-center justify-center gap-2",
-                          actioning === approveKey && "opacity-70"
+                          isActioning && "opacity-70 cursor-not-allowed"
                         )}
                       >
                         {actioning === approveKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -214,10 +221,10 @@ export default function AdminApplications() {
                       </button>
                       <button
                         onClick={() => handleReject(type, app.id)}
-                        disabled={actioning === rejectKey}
+                        disabled={isActioning}
                         className={clsx(
                           "flex-1 rounded-xl border border-[#5c1f1f]/70 bg-[#2b0e0e] py-2 text-sm font-semibold text-[#ffb4a2] flex items-center justify-center gap-2",
-                          actioning === rejectKey && "opacity-70"
+                          isActioning && "opacity-70 cursor-not-allowed"
                         )}
                       >
                         {actioning === rejectKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldX className="h-4 w-4" />}
@@ -225,7 +232,8 @@ export default function AdminApplications() {
                       </button>
                       <button
                         onClick={() => setSelectedApp(app)}
-                        className="rounded-xl border border-[#3a2a0f] bg-[#1a1305] p-2 text-[#f5c76a] hover:bg-[#2a1c07]"
+                        disabled={isActioning}
+                        className="rounded-xl border border-[#3a2a0f] bg-[#1a1305] p-2 text-[#f5c76a] hover:bg-[#2a1c07] disabled:opacity-50"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
