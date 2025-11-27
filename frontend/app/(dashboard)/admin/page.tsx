@@ -100,16 +100,30 @@ function AdminDashboardContent() {
     };
   }, [qc]);
 
-  const resolveError = (err: any) => err?.response?.data?.detail || err?.message || "İşlem tamamlanamadı";
+  const resolveError = (err: any) =>
+    err?.response?.data?.details ||
+    err?.response?.data?.error ||
+    err?.response?.data?.detail ||
+    err?.message ||
+    "İşlem tamamlanamadı";
 
   const handleApprove = async (type: ApplicationType, id: number) => {
     setActioning(`approve-${type}-${id}`);
     setBanner(null);
     try {
       const res = type === "driver" ? await approveDriver.mutateAsync(id) : await approvePartner.mutateAsync(id);
-      setBanner({ type: "success", message: res?.message || "Şifre başarıyla gönderildi." });
+      if (res?.success) {
+        setBanner({ type: "success", message: "Şifre kullanıcıya mail olarak gönderildi." });
+      } else {
+        setBanner({ type: "error", message: resolveError({ response: { data: res } }) });
+      }
     } catch (err) {
-      setBanner({ type: "error", message: resolveError(err) });
+      const backendMessage =
+        err && typeof err === "object" && "response" in err ? resolveError(err) : null;
+      setBanner({
+        type: "error",
+        message: backendMessage || "Sunucu hatası: mail gönderilemedi",
+      });
     } finally {
       setActioning(null);
     }
