@@ -113,10 +113,11 @@ export default function AdminApplications() {
   const filteredList = useMemo(() => {
     if (!searchTerm.trim()) return currentList;
     const term = searchTerm.toLowerCase();
+    const isDriver = activeTab === "drivers";
     return currentList.filter((app: any) => {
-      const name = activeTab === "driver" ? app.full_name : app.contact_full_name || app.name;
-      const email = activeTab === "driver" ? app.email : app.contact_email;
-      const phone = activeTab === "driver" ? app.phone : app.contact_phone;
+      const name = isDriver ? app.full_name : app.contact_full_name || app.name;
+      const email = isDriver ? app.email : app.contact_email;
+      const phone = isDriver ? app.phone : app.contact_phone;
       return [name, email, phone].some((v) => v?.toLowerCase().includes(term));
     });
   }, [currentList, searchTerm, activeTab]);
@@ -181,13 +182,14 @@ export default function AdminApplications() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredList.map((app: any) => {
-              const type = activeTab === "drivers" ? "driver" : "partner";
+              const isDriver = activeTab === "drivers";
+              const type = isDriver ? "driver" : "partner";
               const approveKey = `approve-${type}-${app.id}`;
               const rejectKey = `reject-${type}-${app.id}`;
-              const name = activeTab === "drivers" ? app.full_name : app.contact_full_name || app.name;
-              const email = activeTab === "drivers" ? app.email : app.contact_email;
-              const phone = activeTab === "drivers" ? app.phone : app.contact_phone;
-              const meta = activeTab === "drivers" ? app.vehicle_plate || app.city : app.city || app.description;
+              const name = isDriver ? app.full_name : app.contact_full_name || app.name;
+              const email = isDriver ? app.email : app.contact_email;
+              const phone = isDriver ? app.phone : app.contact_phone;
+              const meta = isDriver ? app.vehicle_plate || app.city : app.city || app.description;
 
               return (
                 <div key={app.id} className="rounded-2xl border border-[#4a340f]/60 bg-black/40 p-4">
@@ -253,4 +255,3 @@ export default function AdminApplications() {
     </div>
   );
 }
-
