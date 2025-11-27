@@ -41,11 +41,18 @@ export function useApplyDriver() {
   });
 }
 
-export function useAdminPartnerApplications() {
+type ApplicationStatus = "pending" | "approved" | "rejected" | "all";
+
+function buildStatusQuery(status: ApplicationStatus) {
+  if (status === "all") return "";
+  return `?status=${status}`;
+}
+
+export function useAdminPartnerApplications(status: ApplicationStatus = "pending") {
   return useQuery({
-    queryKey: ["applications", "partners"],
+    queryKey: ["applications", "partners", status],
     queryFn: async () => {
-      const { data } = await api.get("/api/applications/partners");
+      const { data } = await api.get(`/api/applications/partners${buildStatusQuery(status)}`);
       return data as any[];
     },
     staleTime: 10_000,
@@ -55,11 +62,11 @@ export function useAdminPartnerApplications() {
   });
 }
 
-export function useAdminDriverApplications() {
+export function useAdminDriverApplications(status: ApplicationStatus = "pending") {
   return useQuery({
-    queryKey: ["applications", "drivers"],
+    queryKey: ["applications", "drivers", status],
     queryFn: async () => {
-      const { data } = await api.get("/api/applications/drivers");
+      const { data } = await api.get(`/api/applications/drivers${buildStatusQuery(status)}`);
       return data as any[];
     },
     staleTime: 10_000,
@@ -77,7 +84,9 @@ export function useApprovePartner() {
       return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["applications", "partners"] });
+      qc.invalidateQueries({ queryKey: ["applications"] });
+      qc.invalidateQueries({ queryKey: ["partners"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
     },
   });
 }
@@ -90,7 +99,8 @@ export function useRejectPartner() {
       return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["applications", "partners"] });
+      qc.invalidateQueries({ queryKey: ["applications"] });
+      qc.invalidateQueries({ queryKey: ["partners"] });
     },
   });
 }
@@ -103,7 +113,8 @@ export function useApproveDriver() {
       return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["applications", "drivers"] });
+      qc.invalidateQueries({ queryKey: ["applications"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
     },
   });
 }
@@ -116,7 +127,7 @@ export function useRejectDriver() {
       return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["applications", "drivers"] });
+      qc.invalidateQueries({ queryKey: ["applications"] });
     },
   });
 }

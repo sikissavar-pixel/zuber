@@ -1,34 +1,44 @@
 "use client";
+
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Navbar from "../../../components/Navbar";
-import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/Card";
-import { getSocket, DriverLocation } from "../../../lib/socket";
-import { Table, THead, TBody, TR, TH, TD } from "../../../components/ui/Table";
-import { useAdminReservations, useAssignDriver, useDrivers, usePartners } from "../../../hooks/useReservations";
-import { useAdminPartnerApplications, useAdminDriverApplications, useApprovePartner, useRejectPartner, useApproveDriver, useRejectDriver } from "../../../hooks/useApplications";
-import { useQueryClient } from "@tanstack/react-query";
-import { StatusBadge, PaymentBadge } from "../../../components/ui/Badge";
-import api from "../../../lib/api";
-import { Button } from "../../../components/ui/Button";
-import { useSearchParams } from "next/navigation";
-import MobileTabBar from "../../../components/mobile/MobileTabBar";
-import { motion } from "framer-motion";
-import MobileAppBridge from "../../../components/mobile/MobileAppBridge";
-import ApplicationCard from "../../../components/admin/ApplicationCard";
-import dynamic from "next/dynamic";
-const AdminZuberMap = dynamic(
-  () => import("@/components/maps").then((mod) => mod.ZuberMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[500px] rounded-3xl border border-yellow-800/30 bg-black/40 flex items-center justify-center text-sm text-zinc-400">
-        Harita yükleniyor...
-      </div>
-    ),
-  }
-);
-
 import ProtectedRoute from "../../../components/ProtectedRoute";
+import MobileAppBridge from "../../../components/mobile/MobileAppBridge";
+import MobileTabBar from "../../../components/mobile/MobileTabBar";
+import { useDrivers, usePartners } from "../../../hooks/useReservations";
+import {
+  useAdminPartnerApplications,
+  useAdminDriverApplications,
+  useApprovePartner,
+  useRejectPartner,
+  useApproveDriver,
+  useRejectDriver,
+} from "../../../hooks/useApplications";
+import { useQueryClient } from "@tanstack/react-query";
+import { getSocket } from "../../../lib/socket";
+import { Loader2, CheckCircle2, XCircle, Search, Users, ShieldCheck, ShieldX } from "lucide-react";
+import clsx from "clsx";
+
+type ApplicationType = "driver" | "partner";
+type BannerState = { type: "success" | "error"; message: string };
+type TableRecord = {
+  id: string | number;
+  type: ApplicationType;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  status: "approved" | "rejected";
+  city?: string | null;
+  created_at?: string | null;
+};
+type PendingCard = {
+  id: number;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  meta?: string | null;
+  created_at?: string | null;
+};
 
 function AdminDashboardInner() {
   const [authorized, setAuthorized] = useState(false);
@@ -38,433 +48,460 @@ function AdminDashboardInner() {
       setAuthorized(flag === "true");
     } catch {}
   }, []);
-
-  // Zuber Control Room görünürlüğü: sadece yetkili kullanıcılar
   if (!authorized) {
-    return null; // veya minimal bir footer gösterilebilir
+    return null;
   }
-
-  // Hook sayısı her render'da sabit kalsın diye içerik ayrı bir component'te
   return <AdminDashboardContent />;
 }
 
 function AdminDashboardContent() {
-  const [locations, setLocations] = useState<Record<string, DriverLocation>>({});
-  const { data: reservations } = useAdminReservations();
-  const assign = useAssignDriver();
-  const { data: drivers = [] } = useDrivers();
-  const { data: partners = [] } = usePartners();
   const qc = useQueryClient();
-  const searchParams = useSearchParams();
-  const tab = (searchParams.get("tab") || "reservations") as "reservations" | "partners" | "drivers" | "reports" | "applications";
-  const { data: partnerApps = [] } = useAdminPartnerApplications();
-  const { data: driverApps = [] } = useAdminDriverApplications();
+  const { data: pendingPartnerApps = [], isLoading: pendingPartnerLoading } = useAdminPartnerApplications("pending");
+  const { data: pendingDriverApps = [], isLoading: pendingDriverLoading } = useAdminDriverApplications("pending");
+  const { data: rejectedPartnerApps = [], isLoading: rejectedPartnerLoading } = useAdminPartnerApplications("rejected");
+  const { data: rejectedDriverApps = [], isLoading: rejectedDriverLoading } = useAdminDriverApplications("rejected");
+  const { data: drivers = [], isLoading: driversLoading } = useDrivers();
+  const { data: partners = [], isLoading: partnersLoading } = usePartners();
   const approvePartner = useApprovePartner();
-  const rejectPartner = useRejectPartner();
   const approveDriver = useApproveDriver();
+  const rejectPartner = useRejectPartner();
   const rejectDriver = useRejectDriver();
 
-  // Delete reservation (admin)
-  const handleDeleteReservation = async (id: number) => {
-    if (!confirm(`Bu rezervasyon silinecek (#${id}). Emin misiniz?`)) return;
+  const [banner, setBanner] = useState<BannerState | null>(null);
+  const [actioning, setActioning] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "driver" | "partner">("all");
+
+  useEffect(() => {
+    if (!banner) return;
+    const timer = setTimeout(() => setBanner(null), 5000);
+    return () => clearTimeout(timer);
+  }, [banner]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    socket.emit("admin_join");
+    const refreshApplications = () => {
+      qc.invalidateQueries({ queryKey: ["applications"] });
+      qc.invalidateQueries({ queryKey: ["partners"] });
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+    };
+    socket.on("new_application", refreshApplications);
+    socket.on("application_updated", refreshApplications);
+    socket.on("application_approved", refreshApplications);
+    socket.on("partners_updated", () => qc.invalidateQueries({ queryKey: ["partners"] }));
+    socket.on("drivers_updated", () => qc.invalidateQueries({ queryKey: ["drivers"] }));
+    return () => {
+      socket.off("new_application", refreshApplications);
+      socket.off("application_updated", refreshApplications);
+      socket.off("application_approved", refreshApplications);
+      socket.off("partners_updated");
+      socket.off("drivers_updated");
+    };
+  }, [qc]);
+
+  const resolveError = (err: any) => err?.response?.data?.detail || err?.message || "İşlem tamamlanamadı";
+
+  const handleApprove = async (type: ApplicationType, id: number) => {
+    setActioning(`approve-${type}-${id}`);
+    setBanner(null);
     try {
-      await api.delete(`/api/admin/reservations/${id}`);
-      await qc.invalidateQueries({ queryKey: ["reservations", "admin"] });
-    } catch (e: any) {
-      alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
+      const res = type === "driver" ? await approveDriver.mutateAsync(id) : await approvePartner.mutateAsync(id);
+      setBanner({ type: "success", message: res?.message || "Şifre başarıyla gönderildi." });
+    } catch (err) {
+      setBanner({ type: "error", message: resolveError(err) });
+    } finally {
+      setActioning(null);
     }
   };
 
-  // Simple sorting for reservations
-  const [sortKey, setSortKey] = useState<"pickup_time" | "status" | "payment_status" | "id">("pickup_time");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const sortedReservations = useMemo(() => {
-    const list = [...(reservations || [])];
-    return list.sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      const av = sortKey === "pickup_time" ? new Date(a.pickup_time).getTime() : (a as any)[sortKey];
-      const bv = sortKey === "pickup_time" ? new Date(b.pickup_time).getTime() : (b as any)[sortKey];
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return 0;
-    });
-  }, [reservations, sortKey, sortDir]);
+  const handleReject = async (type: ApplicationType, id: number) => {
+    setActioning(`reject-${type}-${id}`);
+    setBanner(null);
+    try {
+      type === "driver" ? await rejectDriver.mutateAsync(id) : await rejectPartner.mutateAsync(id);
+      setBanner({ type: "success", message: "Başvuru reddedildi." });
+    } catch (err) {
+      setBanner({ type: "error", message: resolveError(err) });
+    } finally {
+      setActioning(null);
+    }
+  };
 
-  // Partner onayını PATCH ile yap, temp şifreyi modalda göster ve cache'i tazele
-  useEffect(() => {
-    const socket = getSocket();
-    const locHandler = (loc: DriverLocation) => {
-      const driverId = String(loc.driverId ?? loc.driver_id ?? "");
-      if (!driverId) return;
-      const normalized = {
-        driverId,
-        lat: loc.lat ?? loc.latitude ?? 0,
-        lng: loc.lng ?? loc.longitude ?? 0,
-        updatedAt: loc.updatedAt ?? loc.updated_at ?? new Date().toISOString(),
-      };
-      setLocations((prev) => ({ ...prev, [driverId]: normalized }));
-    };
-    socket.emit("admin_join");
-    socket.on("driver_location_update", locHandler);
-    socket.on("reservation_created", () => qc.invalidateQueries({ queryKey: ["reservations", "admin"] }));
-    socket.on("reservation_updated", () => qc.invalidateQueries({ queryKey: ["reservations", "admin"] }));
-    socket.on("reservation_assigned", () => qc.invalidateQueries({ queryKey: ["reservations", "admin"] }));
-    socket.on("admin_update", (data: any) => {
-      const t = data?.table;
-      if (t === "reservations") qc.invalidateQueries({ queryKey: ["reservations", "admin"] });
-      if (t === "partners") qc.invalidateQueries({ queryKey: ["partners"] });
-      if (t === "drivers") {
-        qc.invalidateQueries({ queryKey: ["drivers"] });
-        qc.invalidateQueries({ queryKey: ["reservations", "admin"] });
-      }
-    });
-    socket.on("new_application", (data: any) => {
-      if (data?.type === "partner") {
-        qc.invalidateQueries({ queryKey: ["applications", "partners"] });
-      } else if (data?.type === "driver") {
-        qc.invalidateQueries({ queryKey: ["applications", "drivers"] });
-      }
-    });
-    socket.on("application_updated", () => {
-      qc.invalidateQueries({ queryKey: ["applications", "partners"] });
-      qc.invalidateQueries({ queryKey: ["applications", "drivers"] });
-    });
-    socket.on("application_approved", () => {
-      qc.invalidateQueries({ queryKey: ["applications", "partners"] });
-      qc.invalidateQueries({ queryKey: ["applications", "drivers"] });
-      qc.invalidateQueries({ queryKey: ["partners"] });
-      qc.invalidateQueries({ queryKey: ["drivers"] });
-    });
-    socket.on("partners_updated", () => qc.invalidateQueries({ queryKey: ["partners"] }));
-    socket.on("drivers_updated", () => qc.invalidateQueries({ queryKey: ["drivers"] }));
-    socket.on("admin_reset", () => {
-      qc.invalidateQueries({ queryKey: ["partners"] });
-      qc.invalidateQueries({ queryKey: ["drivers"] });
-      qc.invalidateQueries({ queryKey: ["applications", "partners"] });
-      qc.invalidateQueries({ queryKey: ["applications", "drivers"] });
-    });
-    return () => {
-      socket.off("driver_location_update", locHandler);
-      socket.off("reservation_created");
-      socket.off("reservation_updated");
-      socket.off("reservation_assigned");
-      socket.off("admin_update");
-      socket.off("new_application");
-      socket.off("application_updated");
-      socket.off("application_approved");
-      socket.off("partners_updated");
-      socket.off("drivers_updated");
-      socket.off("admin_reset");
-    };
-  }, []);
+  const pendingDriverList: PendingCard[] = useMemo(() => pendingDriverApps.map((app: any) => ({
+    id: app.id,
+    name: app.full_name,
+    email: app.email,
+    phone: app.phone,
+    meta: app.vehicle_plate || app.city || "-",
+    created_at: app.created_at,
+  })), [pendingDriverApps]);
 
-  const driverMarkers = useMemo(() => {
-    const makeId = () => {
-      if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-        return crypto.randomUUID();
-      }
-      return `driver-${Math.random().toString(36).slice(2, 9)}`;
-    };
-    return Object.values(locations).map((loc) => ({
-      id: loc.driverId ?? loc.driver_id ?? makeId(),
-      lat: Number(loc.lat ?? loc.latitude ?? 0),
-      lng: Number(loc.lng ?? loc.longitude ?? 0),
-      heading: loc.heading ?? null,
-      status: "Çevrimiçi sürücü",
+  const pendingPartnerList: PendingCard[] = useMemo(() => pendingPartnerApps.map((app: any) => ({
+    id: app.id,
+    name: app.contact_full_name || app.name,
+    email: app.contact_email,
+    phone: app.contact_phone,
+    meta: app.city || app.description || "-",
+    created_at: app.created_at,
+  })), [pendingPartnerApps]);
+
+  const approvedUsers: TableRecord[] = useMemo(() => {
+    const driverRecords = (drivers as any[]).map((driver) => ({
+      id: `driver-${driver.id}`,
+      type: "driver" as ApplicationType,
+      name: driver.full_name,
+      email: driver.email,
+      phone: driver.contact_phone,
+      status: "approved" as const,
+      city: driver.vehicle_plate || (driver as any)?.city || "-",
+      created_at: (driver as any)?.created_at || null,
     }));
-  }, [locations]);
+    const partnerRecords = (partners as any[]).map((partner) => ({
+      id: `partner-${partner.id}`,
+      type: "partner" as ApplicationType,
+      name: partner.name,
+      email: partner.contact_email,
+      phone: partner.contact_phone,
+      status: "approved" as const,
+      city: (partner as any)?.city || partner.description || partner.contact_phone || "-",
+      created_at: (partner as any)?.created_at || null,
+    }));
+    return [...driverRecords, ...partnerRecords];
+  }, [drivers, partners]);
 
-  // Sürücü ve partnerler artık React Query ile çekiliyor; periyodik refetch ve cache sağlandı
+  const rejectedUsers: TableRecord[] = useMemo(() => {
+    const driverRecords = (rejectedDriverApps as any[]).map((app) => ({
+      id: `driver-rejected-${app.id}`,
+      type: "driver" as ApplicationType,
+      name: app.full_name,
+      email: app.email,
+      phone: app.phone,
+      status: "rejected" as const,
+      city: app.city || app.vehicle_plate || "-",
+      created_at: app.updated_at || app.created_at || null,
+    }));
+    const partnerRecords = (rejectedPartnerApps as any[]).map((app) => ({
+      id: `partner-rejected-${app.id}`,
+      type: "partner" as ApplicationType,
+      name: app.contact_full_name || app.name,
+      email: app.contact_email,
+      phone: app.contact_phone,
+      status: "rejected" as const,
+      city: app.city || app.description || "-",
+      created_at: app.updated_at || app.created_at || null,
+    }));
+    return [...driverRecords, ...partnerRecords];
+  }, [rejectedDriverApps, rejectedPartnerApps]);
 
-  // Raporlar için basit metrikler
-  const total = (reservations || []).length;
-  const completed = (reservations || []).filter((r) => r.status === "completed").length;
-  const cancelled = (reservations || []).filter((r) => r.status === "cancelled").length;
-  const assigned = (reservations || []).filter((r) => r.status === "assigned").length;
-  const unpaid = (reservations || []).filter((r) => r.payment_status === "unpaid").length;
-  const paid = (reservations || []).filter((r) => r.payment_status === "paid").length;
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const recordMatches = (record: TableRecord) => {
+    if (roleFilter !== "all" && record.type !== roleFilter) return false;
+    if (!normalizedSearch) return true;
+    const haystack = [record.name, record.email, record.phone, record.city].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(normalizedSearch);
+  };
+
+  const filteredApproved = useMemo(() => approvedUsers.filter(recordMatches), [approvedUsers, normalizedSearch, roleFilter]);
+  const filteredRejected = useMemo(() => rejectedUsers.filter(recordMatches), [rejectedUsers, normalizedSearch, roleFilter]);
+
+  const pendingTotal = pendingDriverList.length + pendingPartnerList.length;
+  const rejectedTotal = rejectedUsers.length;
 
   return (
     <ProtectedRoute allowedRoles={["admin"]}>
       <Navbar />
       <MobileAppBridge />
-      <main className="mx-auto max-w-6xl px-4 py-8 space-y-8 bg-black min-h-screen text-gray-200 font-inter">
-        <h1 className="font-[var(--font-display)] text-3xl md:text-4xl text-[var(--gold)] title-glow">Zuber Control Room</h1>
+      <main className="mx-auto max-w-6xl px-4 py-10 space-y-8 bg-black min-h-screen text-gray-200">
+        <header className="space-y-3">
+          <p className="text-xs uppercase tracking-[0.5em] text-[#b4872b]">Zuber Control Room</p>
+          <h1 className="font-cinzel text-3xl md:text-4xl text-[#f5d47d] drop-shadow-[0_10px_30px_rgba(250,204,21,0.25)]">Admin Paneli</h1>
+          <p className="text-sm text-zinc-400 max-w-2xl">Başvuruları yönetin, gerçek zamanlı güncellemeleri takip edin ve kritik işlemleri tek bir premium panel üzerinden tamamlayın.</p>
+        </header>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-2 border-b border-yellow-800/30 pb-2">
-          {[
-            { key: "reservations", label: "🗓️ Rezervasyonlar" },
-            { key: "partners", label: "🏨 Partnerler" },
-            { key: "drivers", label: "🚘 Sürücüler" },
-            { key: "applications", label: "📨 Başvurular" },
-            { key: "reports", label: "📊 Raporlar" },
-          ].map((t) => (
-            <a
-              key={t.key}
-              href={`/admin?tab=${t.key}`}
-              className={`text-sm px-3 py-2 rounded-2xl ${tab === (t.key as any) ? "bg-yellow-900/20 text-yellow-400" : "text-zinc-400 hover:text-yellow-300"}`}
-            >
-              {t.label}
-            </a>
-          ))}
-        </div>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard title="Bekleyen Başvuru" value={pendingTotal} icon={Users} accent="gold" loading={pendingPartnerLoading || pendingDriverLoading} />
+          <StatCard title="Onaylı Sürücü" value={drivers.length} icon={ShieldCheck} accent="emerald" loading={driversLoading} />
+          <StatCard title="Onaylı Partner" value={partners.length} icon={ShieldCheck} accent="amber" loading={partnersLoading} />
+          <StatCard title="Reddedilen" value={rejectedTotal} icon={ShieldX} accent="rose" loading={rejectedPartnerLoading || rejectedDriverLoading} />
+        </section>
 
-        {/* Rezervasyonlar */}
-        {tab === "reservations" && (
-          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }}>
-          <Card className="bg-black/40 backdrop-blur-lg border border-yellow-800/30 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="font-cinzel text-yellow-400">Rezervasyonlar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table className="w-full bg-black/70 border border-yellow-500/30 rounded-xl shadow-[0_0_25px_#facc15]/20">
-                <THead className="bg-yellow-500/10 text-yellow-400 uppercase text-sm">
-                  <TR>
-                    <TH className="p-3">#</TH>
-                    <TH className="p-3">Misafir</TH>
-                    <TH className="p-3">Rota</TH>
-                    <TH className="p-3 cursor-pointer" onClick={() => { setSortKey("pickup_time"); setSortDir(sortDir === "asc" ? "desc" : "asc"); }}>Alış Zamanı</TH>
-                    <TH className="p-3 cursor-pointer" onClick={() => { setSortKey("status"); setSortDir(sortDir === "asc" ? "desc" : "asc"); }}>Durum</TH>
-                    <TH className="p-3 cursor-pointer" onClick={() => { setSortKey("payment_status"); setSortDir(sortDir === "asc" ? "desc" : "asc"); }}>Ödeme</TH>
-                    <TH className="p-3">Şoför</TH>
-                    <TH className="p-3">Aksiyon</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {sortedReservations.map((r, i) => (
-                    <TR key={r.id} className="hover:bg-yellow-500/10 transition-all duration-300">
-                      <TD className="p-3 text-yellow-300">#{i + 1}</TD>
-                      <TD className="p-3">{r.guest_name || r.guest_id || "-"}</TD>
-                      <TD className="p-3">{r.pickup_location} → {r.dropoff_location}</TD>
-                      <TD className="p-3">{new Date(r.pickup_time).toLocaleString()}</TD>
-                      <TD className="p-3"><StatusBadge status={r.status} /></TD>
-                      <TD className="p-3">
-                        <div className="flex items-center gap-2">
-                          <PaymentBadge payment_status={r.payment_status as any} />
-                          <span className="text-xs text-zinc-400">{r.total_amount ? Number(r.total_amount).toFixed(2) : "0.00"}</span>
-                        </div>
-                      </TD>
-                      <TD className="p-3">{r.driver_id || "-"}</TD>
-                      <TD className="p-3">
-                        <div className="flex gap-2 items-center">
-                          <select className="bg-zinc-900 soft-border rounded px-2 py-1" defaultValue={r.driver_id || ""} onChange={(e) => assign.mutate({ id: r.id, driver_id: Number(e.target.value) })}>
-                            <option value="">Otomatik</option>
-                            {drivers.map((d) => (
-                              <option key={d.id} value={d.id}>{d.full_name}</option>
-                            ))}
-                          </select>
-                          <Button variant="secondary" onClick={() => assign.mutate({ id: r.id })}>Ata</Button>
-                          <button onClick={() => handleDeleteReservation(r.id)} className="bg-red-700/50 text-yellow-200 px-3 py-1 rounded-md hover:bg-red-600/70 transition-all duration-200">Sil</button>
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            </CardContent>
-          </Card>
-          </motion.div>
+        {banner && (
+          <div
+            className={clsx(
+              "rounded-2xl border px-4 py-3 flex items-center gap-3",
+              banner.type === "success" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" : "border-rose-500/40 bg-rose-500/10 text-rose-200"
+            )}
+          >
+            {banner.type === "success" ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+            <span className="text-sm">{banner.message}</span>
+          </div>
         )}
 
-        {/* Başvurular: Partner + Sürücü */}
-        {tab === "applications" && (
-          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }} className="space-y-4">
-             <div className="flex items-center justify-between mb-4 px-2">
-                <h2 className="font-cinzel text-2xl text-yellow-400">Bekleyen Başvurular</h2>
-                <div className="text-sm text-zinc-400 bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800">
-                   Toplam: {partnerApps.length + driverApps.length}
-                </div>
-             </div>
-             
-             {partnerApps.length === 0 && driverApps.length === 0 && (
-                <div className="text-center py-16 text-zinc-500 bg-zinc-900/20 rounded-xl border border-zinc-800 border-dashed backdrop-blur-sm">
-                   Bekleyen başvuru bulunmamaktadır.
-                </div>
-             )}
-
-             <div className="grid gap-1">
-                {partnerApps.map((p: any) => (
-                   <ApplicationCard 
-                      key={`partner-${p.id}`} 
-                      data={p} 
-                      type="partner" 
-                      isApplication={true}
-                      onApprove={async (id) => {
-                          try {
-                              const res: any = await approvePartner.mutateAsync(id);
-                              if (res?.email_sent) {
-                                  alert(res?.message || "Şifre kullanıcıya mail olarak gönderildi.");
-                              } else {
-                                  alert(res?.message || "Başvuru onaylandı.");
-                              }
-                          } catch (err: any) {
-                              const detail = err?.response?.data?.detail || "Mail gönderilemedi, onay işlemi iptal edildi.";
-                              alert(`❌ ${detail}`);
-                          }
-                      }}
-                      onReject={(id) => rejectPartner.mutate(id)}
-                   />
-                ))}
-                {driverApps.map((d: any) => (
-                   <ApplicationCard 
-                      key={`driver-${d.id}`} 
-                      data={d} 
-                      type="driver" 
-                      isApplication={true}
-                      onApprove={async (id) => {
-                          try {
-                              const res: any = await approveDriver.mutateAsync(id);
-                              if (res?.email_sent) {
-                                  alert(res?.message || "Şifre kullanıcıya mail olarak gönderildi.");
-                              } else {
-                                  alert(res?.message || "Başvuru onaylandı.");
-                              }
-                          } catch (err: any) {
-                              const detail = err?.response?.data?.detail || "Mail gönderilemedi, onay işlemi iptal edildi.";
-                              alert(`❌ ${detail}`);
-                          }
-                      }}
-                      onReject={(id) => rejectDriver.mutate(id)}
-                   />
-                ))}
-             </div>
-          </motion.div>
-        )}
-
-        
-
-        {/* Partnerler */}
-        {tab === "partners" && (
-          <motion.div initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }} className="space-y-4">
-             <div className="flex items-center justify-between mb-4 px-2">
-                <h2 className="font-cinzel text-2xl text-yellow-400">Aktif Partnerler</h2>
-                <div className="text-sm text-zinc-400 bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800">
-                   Toplam: {partners.length}
-                </div>
-             </div>
-
-             {partners.length === 0 && (
-                <div className="text-center py-16 text-zinc-500 bg-zinc-900/20 rounded-xl border border-zinc-800 border-dashed backdrop-blur-sm">
-                   Aktif partner bulunmamaktadır.
-                </div>
-             )}
-
-             <div className="grid gap-1">
-                {partners.map((p: any) => (
-                   <ApplicationCard 
-                      key={`active-partner-${p.id}`} 
-                      data={p} 
-                      type="partner" 
-                      isApplication={false}
-                      onDelete={async (id) => {
-                          if (!confirm(`Bu partner silinecek: ${p.name}. Emin misiniz?`)) return;
-                          try {
-                              await api.delete(`/api/partners/${id}`);
-                              await qc.invalidateQueries({ queryKey: ["partners"] });
-                          } catch (e: any) {
-                              alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
-                          }
-                      }}
-                   />
-                ))}
-             </div>
-          </motion.div>
-        )}
-
-        {/* Sürücüler */}
-        {tab === "drivers" && (
-          <motion.div className="space-y-6" initial={{ opacity: 0, y: 8, filter: "blur(4px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 0.35 }}>
-            <Card className="bg-black/40 backdrop-blur-lg border border-yellow-800/30 rounded-2xl">
-              <CardHeader>
-                <CardTitle className="font-cinzel text-yellow-400">Canlı Sürücü Haritası</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-                  <AdminZuberMap drivers={driverMarkers} height={500} />
-                ) : (
-                  <p className="text-sm text-zinc-400">Google Maps API anahtarı eksik veya geçersiz.</p>
+        <section className="rounded-3xl border border-[#2a1c07] bg-[#050403]/80 backdrop-blur-xl px-5 py-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <label className="relative flex-1 max-w-lg">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#c79a3a]" />
+            <input
+              type="text"
+              placeholder="Ad, mail veya telefon ile ara..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-2xl border border-[#3a2a0f] bg-transparent py-3 pl-11 pr-4 text-sm text-white placeholder:text-[#8b7442] focus:border-[#f5c76a] focus:outline-none"
+            />
+          </label>
+          <div className="flex items-center gap-2">
+            {[
+              { key: "all", label: "Tümü" },
+              { key: "driver", label: "Sürücü" },
+              { key: "partner", label: "Partner" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setRoleFilter(item.key as any)}
+                className={clsx(
+                  "rounded-2xl px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition",
+                  roleFilter === item.key ? "bg-[#f5c76a]/90 text-black" : "bg-[#1a1305] text-[#b18a39] hover:bg-[#2a1c07]"
                 )}
-              </CardContent>
-            </Card>
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </section>
 
-            <div className="space-y-4">
-               <div className="flex items-center justify-between mb-4 px-2">
-                  <h2 className="font-cinzel text-2xl text-yellow-400">Aktif Sürücüler</h2>
-                  <div className="text-sm text-zinc-400 bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800">
-                     Toplam: {drivers.length}
-                  </div>
-               </div>
+        <section className="grid gap-6 lg:grid-cols-2">
+          <PendingApplicationList
+            title="Bekleyen Sürücü Başvuruları"
+            apps={pendingDriverList}
+            type="driver"
+            loading={pendingDriverLoading}
+            onApprove={(id) => handleApprove("driver", id)}
+            onReject={(id) => handleReject("driver", id)}
+            actioning={actioning}
+          />
+          <PendingApplicationList
+            title="Bekleyen Partner Başvuruları"
+            apps={pendingPartnerList}
+            type="partner"
+            loading={pendingPartnerLoading}
+            onApprove={(id) => handleApprove("partner", id)}
+            onReject={(id) => handleReject("partner", id)}
+            actioning={actioning}
+          />
+        </section>
 
-               <div className="grid gap-1">
-                  {drivers.map((d: any) => (
-                     <ApplicationCard 
-                        key={`active-driver-${d.id}`} 
-                        data={d} 
-                        type="driver" 
-                        isApplication={false}
-                        onDelete={async (id) => {
-                            if (!confirm(`Bu sürücü silinecek: ${d.full_name}. Emin misiniz?`)) return;
-                            try {
-                                await api.delete(`/api/admin/drivers/${id}`);
-                                await qc.invalidateQueries({ queryKey: ["drivers"] });
-                                await qc.invalidateQueries({ queryKey: ["reservations", "admin"] });
-                            } catch (e: any) {
-                                alert("Silme işlemi başarısız: " + (e?.response?.data?.detail || e?.message || "Hata"));
-                            }
-                        }}
-                     />
-                  ))}
-               </div>
-            </div>
-          </motion.div>
-        )}
+        <AdminTable
+          title="Onaylanan Kullanıcılar"
+          data={filteredApproved}
+          loading={driversLoading || partnersLoading}
+          emptyText="Onaylı kullanıcı bulunamadı."
+        />
 
-        {/* Raporlar */}
-        {tab === "reports" && (
-          <Card className="bg-black/40 backdrop-blur-lg border border-yellow-800/30 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="font-cinzel text-yellow-400">Finansal ve Operasyonel Özet</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="card gold-glass p-6 rounded-2xl">
-                  <div className="text-zinc-400 text-sm">Toplam Rezervasyon</div>
-                  <div className="text-3xl text-yellow-400 font-cinzel">{total}</div>
-                </div>
-                <div className="card gold-glass p-6 rounded-2xl">
-                  <div className="text-zinc-400 text-sm">Atanmış</div>
-                  <div className="text-3xl text-yellow-400 font-cinzel">{assigned}</div>
-                </div>
-                <div className="card gold-glass p-6 rounded-2xl">
-                  <div className="text-zinc-400 text-sm">Tamamlanan</div>
-                  <div className="text-3xl text-yellow-400 font-cinzel">{completed}</div>
-                </div>
-                <div className="card gold-glass p-6 rounded-2xl">
-                  <div className="text-zinc-400 text-sm">İptal</div>
-                  <div className="text-3xl text-yellow-400 font-cinzel">{cancelled}</div>
-                </div>
-                <div className="card gold-glass p-6 rounded-2xl">
-                  <div className="text-zinc-400 text-sm">Ödenen</div>
-                  <div className="text-3xl text-yellow-400 font-cinzel">{paid}</div>
-                </div>
-                <div className="card gold-glass p-6 rounded-2xl">
-                  <div className="text-zinc-400 text-sm">Bekleyen Ödeme</div>
-                  <div className="text-3xl text-yellow-400 font-cinzel">{unpaid}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <AdminTable
+          title="Reddedilen Başvurular"
+          data={filteredRejected}
+          loading={rejectedPartnerLoading || rejectedDriverLoading}
+          emptyText="Henüz reddedilen başvuru yok."
+        />
       </main>
       <MobileTabBar />
     </ProtectedRoute>
   );
 }
 
+function PendingApplicationList({
+  title,
+  apps,
+  type,
+  loading,
+  onApprove,
+  onReject,
+  actioning,
+}: {
+  title: string;
+  apps: PendingCard[];
+  type: ApplicationType;
+  loading: boolean;
+  onApprove: (id: number) => void;
+  onReject: (id: number) => void;
+  actioning: string | null;
+}) {
+  return (
+    <section className="rounded-3xl border border-[#3a2a0f] bg-[#050302]/80 p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.4em] text-[#b18a39]">{type === "driver" ? "Driver" : "Partner"}</p>
+          <h3 className="font-cinzel text-xl text-[#f5d47d]">{title}</h3>
+        </div>
+        <span className="text-xs text-[#caa04a]">{apps.length} kayıt</span>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
+          <Loader2 className="h-4 w-4 animate-spin text-[#f5c76a]" /> Veriler yükleniyor...
+        </div>
+      ) : apps.length === 0 ? (
+        <p className="py-10 text-sm text-zinc-500">Bekleyen başvuru yok.</p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {apps.map((app) => {
+            const approveKey = `approve-${type}-${app.id}`;
+            const rejectKey = `reject-${type}-${app.id}`;
+            const created = app.created_at ? new Date(app.created_at).toLocaleString("tr-TR") : "—";
+            return (
+              <div key={`${type}-${app.id}`} className="rounded-2xl border border-[#4a340f]/60 bg-black/40 p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-white">{app.name}</p>
+                    <p className="text-sm text-zinc-400">{app.email}</p>
+                    <p className="text-sm text-zinc-500">{app.phone || "Telefon yok"}</p>
+                  </div>
+                  <div className="text-xs text-right text-zinc-500">
+                    <p>{app.meta}</p>
+                    <p>{created}</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    onClick={() => onApprove(app.id)}
+                    disabled={actioning === approveKey}
+                    className={clsx(
+                      "flex-1 rounded-2xl border border-[#f5c76a]/60 bg-gradient-to-r from-[#fbd483] to-[#f3b94f] py-2 text-sm font-semibold text-black",
+                      actioning === approveKey && "opacity-70"
+                    )}
+                  >
+                    {actioning === approveKey ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> İşleniyor
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <ShieldCheck className="h-4 w-4" /> Onayla
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => onReject(app.id)}
+                    disabled={actioning === rejectKey}
+                    className={clsx(
+                      "flex-1 rounded-2xl border border-[#5c1f1f]/70 bg-[#2b0e0e] py-2 text-sm font-semibold text-[#ffb4a2]",
+                      actioning === rejectKey && "opacity-70"
+                    )}
+                  >
+                    {actioning === rejectKey ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> İşleniyor
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <ShieldX className="h-4 w-4" /> Reddet
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdminTable({ title, data, loading, emptyText }: { title: string; data: TableRecord[]; loading: boolean; emptyText: string }) {
+  return (
+    <section className="rounded-3xl border border-[#3b2b0f] bg-[#050302]/80 p-6 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.4em] text-[#b18a39]">Zuber Network</p>
+          <h3 className="font-cinzel text-xl text-[#f5d47d]">{title}</h3>
+        </div>
+        <span className="text-xs text-[#caa04a]">{data.length} kayıt</span>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-2 py-8 text-sm text-zinc-400">
+          <Loader2 className="h-4 w-4 animate-spin text-[#f5c76a]" /> Veriler güncelleniyor...
+        </div>
+      ) : data.length === 0 ? (
+        <p className="py-8 text-sm text-zinc-500">{emptyText}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-[#2b1d07] text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-[0.4em] text-[#8c6a29]">
+                <th className="py-3 pr-4">Tür</th>
+                <th className="py-3 pr-4">Ad Soyad</th>
+                <th className="py-3 pr-4">İletişim</th>
+                <th className="py-3 pr-4">Şehir / Not</th>
+                <th className="py-3 pr-4">Oluşturma</th>
+                <th className="py-3 text-right">Durum</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1f1405]">
+              {data.map((record) => (
+                <tr key={record.id} className="text-zinc-200">
+                  <td className="py-3 pr-4 capitalize text-[#f5c76a]">{record.type}</td>
+                  <td className="py-3 pr-4">
+                    <p className="font-semibold text-white">{record.name}</p>
+                    <p className="text-xs text-zinc-500">{record.email || "—"}</p>
+                  </td>
+                  <td className="py-3 pr-4 text-sm text-zinc-400">{record.phone || "—"}</td>
+                  <td className="py-3 pr-4 text-sm text-zinc-400">{record.city || "—"}</td>
+                  <td className="py-3 pr-4 text-xs text-zinc-500">{record.created_at ? new Date(record.created_at).toLocaleString("tr-TR") : "—"}</td>
+                  <td className="py-3 text-right">
+                    <StatusPill status={record.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatusPill({ status }: { status: "approved" | "rejected" }) {
+  const normalized = status === "approved" ? "Onaylı" : "Reddedildi";
+  const styles = status === "approved" ? "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30" : "bg-rose-500/15 text-rose-200 border border-rose-500/30";
+  return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${styles}`}>{normalized}</span>;
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  accent,
+  loading,
+}: {
+  title: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  accent: "gold" | "emerald" | "amber" | "rose";
+  loading?: boolean;
+}) {
+  const palette: Record<"gold" | "emerald" | "amber" | "rose", string> = {
+    gold: "from-[#fbd483] to-[#f3b94f]",
+    emerald: "from-emerald-400/70 to-emerald-500/50",
+    amber: "from-amber-300/70 to-amber-500/50",
+    rose: "from-rose-400/70 to-rose-500/40",
+  };
+  return (
+    <div className="rounded-3xl border border-[#3a2a0f] bg-[#050302]/80 p-5 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
+      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.4em] text-[#b18a39]">
+        <Icon className="h-4 w-4 text-[#f5c76a]" />
+        {title}
+      </div>
+      <div className="mt-3 text-4xl font-cinzel text-white">
+        {loading ? <Loader2 className="h-6 w-6 animate-spin text-[#f5c76a]" /> : value}
+      </div>
+      <div className={`mt-3 h-1 w-full rounded-full bg-gradient-to-r ${palette[accent]}`} />
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   return (
-    <Suspense fallback={<div className="text-zinc-300 px-4 py-8">Yükleniyor...</div>}>
+    <Suspense fallback={<div className="text-zinc-400 px-4 py-8">Yükleniyor...</div>}>
       <AdminDashboardInner />
     </Suspense>
   );
