@@ -223,8 +223,8 @@ export function ZuberMap({
 
         directionsService.route(
           {
-            origin: route.origin,
-            destination: route.destination,
+            origin: route.origin!,
+            destination: route.destination!,
             travelMode: route.travelMode || google.maps.TravelMode.DRIVING,
             drivingOptions: {
               departureTime: new Date(),
