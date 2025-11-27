@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useApplyDriver } from "@/hooks/useApplications";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import api, { setAuthToken } from "@/lib/api";
 
 function validateTC(tc: string): boolean {
   if (!tc || tc.length !== 11 || !/^\d+$/.test(tc) || tc[0] === '0') return false;
@@ -48,6 +49,11 @@ export default function DriverApplyPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confetti, setConfetti] = useState(false);
+  const [driverLicenseFile, setDriverLicenseFile] = useState<File | null>(null);
+  const [vehicleRegistrationFile, setVehicleRegistrationFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [driverLicenseUrl, setDriverLicenseUrl] = useState<string>("");
+  const [vehicleRegistrationUrl, setVehicleRegistrationUrl] = useState<string>("");
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const name = e.target.name;
@@ -110,8 +116,96 @@ export default function DriverApplyPage() {
       newErrors.data_processing_consent = "Veri işleme onayı zorunludur";
     }
     
+    if (!driverLicenseUrl) {
+      newErrors.driver_license_image_url = "Ehliyet fotoğrafı gereklidir";
+    }
+    
+    if (!vehicleRegistrationUrl) {
+      newErrors.vehicle_registration_image_url = "Ruhsat fotoğrafı gereklidir";
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const validateFile = (file: File): string | null => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+    if (!allowedTypes.includes(file.type)) {
+      return "Dosya formatı geçersiz. JPG, PNG veya PDF yükleyiniz.";
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return "Dosya boyutu 5MB'dan büyük olamaz.";
+    }
+    return null;
+  };
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      setAuthToken(token);
+    }
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await api.post("/api/uploads/document", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    
+    if (response.data.success && response.data.url) {
+      return response.data.url;
+    }
+    throw new Error("Upload failed");
+  };
+
+  const handleDriverLicenseChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    setDriverLicenseFile(file);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setDriverLicenseUrl(url);
+      toast.success("Ehliyet fotoğrafı yüklendi");
+    } catch (err: any) {
+      toast.error("Yükleme başarısız: " + (err?.response?.data?.detail || err?.message));
+      setDriverLicenseFile(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleVehicleRegistrationChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    setVehicleRegistrationFile(file);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setVehicleRegistrationUrl(url);
+      toast.success("Ruhsat fotoğrafı yüklendi");
+    } catch (err: any) {
+      toast.error("Yükleme başarısız: " + (err?.response?.data?.detail || err?.message));
+      setVehicleRegistrationFile(null);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -140,6 +234,8 @@ export default function DriverApplyPage() {
         vehicle_year: form.vehicle_year,
         plate_number: form.plate_number.toUpperCase(),
         fuel_type: form.fuel_type,
+        driver_license_image_url: driverLicenseUrl,
+        vehicle_registration_image_url: vehicleRegistrationUrl,
       });
     } catch (err: any) {
       const errorMsg = err?.response?.data?.detail || err?.response?.data?.error || err?.message || "Gönderim başarısız oldu";
@@ -251,6 +347,18 @@ export default function DriverApplyPage() {
                   <option value="electric">Elektrik</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm text-yellow-200 mb-1">Ehliyet Fotoğrafı *</label>
+                <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" onChange={handleDriverLicenseChange} disabled={uploading} className="w-full rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" required />
+                {driverLicenseUrl && <p className="text-green-400 text-xs mt-1">✓ Yüklendi</p>}
+                {errors.driver_license_image_url && <p className="text-red-400 text-xs mt-1">{errors.driver_license_image_url}</p>}
+              </div>
+              <div>
+                <label className="block text-sm text-yellow-200 mb-1">Ruhsat Fotoğrafı *</label>
+                <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" onChange={handleVehicleRegistrationChange} disabled={uploading} className="w-full rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" required />
+                {vehicleRegistrationUrl && <p className="text-green-400 text-xs mt-1">✓ Yüklendi</p>}
+                {errors.vehicle_registration_image_url && <p className="text-red-400 text-xs mt-1">{errors.vehicle_registration_image_url}</p>}
+              </div>
             </div>
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm text-yellow-200">
@@ -270,8 +378,8 @@ export default function DriverApplyPage() {
             </div>
             {errors.submit && <p className="text-red-400">{errors.submit}</p>}
             <div className="flex justify-end">
-              <button type="submit" className="px-6 py-3 rounded font-semibold bg-yellow-500 hover:bg-yellow-400 text-black border border-yellow-600/40 transition" disabled={isPending || !form.kvkk_consent || !form.data_processing_consent}>
-                {isPending ? "Gönderiliyor..." : "Başvuruyu Gönder"}
+              <button type="submit" className="px-6 py-3 rounded font-semibold bg-yellow-500 hover:bg-yellow-400 text-black border border-yellow-600/40 transition" disabled={isPending || uploading || !form.kvkk_consent || !form.data_processing_consent || !driverLicenseUrl || !vehicleRegistrationUrl}>
+                {isPending ? "Gönderiliyor..." : uploading ? "Yükleniyor..." : "Başvuruyu Gönder"}
               </button>
             </div>
           </form>

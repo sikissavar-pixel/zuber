@@ -11,9 +11,10 @@ import {
   useApproveDriver,
   useRejectDriver,
 } from "../../../../hooks/useApplications";
-import { Loader2, ShieldCheck, ShieldX, Eye, Search } from "lucide-react";
+import { Loader2, ShieldCheck, ShieldX, Eye, Search, CheckCircle, XCircle, FileText } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
+import api from "../../../../lib/api";
 
 type ApplicationStatus = "pending" | "approved" | "rejected";
 type ApplicationType = "driver" | "partner";
@@ -25,6 +26,9 @@ export default function AdminApplications() {
   const [searchTerm, setSearchTerm] = useState("");
   const [actioning, setActioning] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [missingNote, setMissingNote] = useState("");
+  const [showMissingModal, setShowMissingModal] = useState(false);
+  const [documentActioning, setDocumentActioning] = useState<string | null>(null);
 
   const { data: pendingDrivers = [], isLoading: pendingDriversLoading } = useAdminDriverApplications("pending");
   const { data: approvedDrivers = [], isLoading: approvedDriversLoading } = useAdminDriverApplications("approved");
@@ -89,6 +93,69 @@ export default function AdminApplications() {
       toast.error(resolveError(err));
     } finally {
       setActioning(null);
+    }
+  };
+
+  const handleApproveDocuments = async (type: ApplicationType, id: number) => {
+    setDocumentActioning(`approve-doc-${type}-${id}`);
+    try {
+      const { data } = await api.post(`/api/admin/applications/${id}/approve-documents?application_type=${type}`);
+      if (data.success) {
+        toast.success("Belgeler onaylandı");
+        qc.invalidateQueries({ queryKey: ["applications"] });
+        if (selectedApp) {
+          setSelectedApp({ ...selectedApp, document_status: "approved" });
+        }
+      }
+    } catch (err: any) {
+      toast.error(resolveError(err));
+    } finally {
+      setDocumentActioning(null);
+    }
+  };
+
+  const handleRejectDocuments = async (type: ApplicationType, id: number) => {
+    setDocumentActioning(`reject-doc-${type}-${id}`);
+    try {
+      const { data } = await api.post(`/api/admin/applications/${id}/reject-documents?application_type=${type}`);
+      if (data.success) {
+        toast.success("Belgeler reddedildi");
+        qc.invalidateQueries({ queryKey: ["applications"] });
+        if (selectedApp) {
+          setSelectedApp({ ...selectedApp, document_status: "rejected" });
+        }
+      }
+    } catch (err: any) {
+      toast.error(resolveError(err));
+    } finally {
+      setDocumentActioning(null);
+    }
+  };
+
+  const handleRequestMissingDocuments = async (type: ApplicationType, id: number) => {
+    if (!missingNote.trim()) {
+      toast.error("Eksik belge notu gereklidir");
+      return;
+    }
+    setDocumentActioning(`missing-doc-${type}-${id}`);
+    try {
+      const { data } = await api.post(`/api/admin/applications/${id}/request-missing-documents`, {
+        missing_document_note: missingNote,
+        application_type: type,
+      });
+      if (data.success) {
+        toast.success("Eksik belge isteği gönderildi");
+        qc.invalidateQueries({ queryKey: ["applications"] });
+        setShowMissingModal(false);
+        setMissingNote("");
+        if (selectedApp) {
+          setSelectedApp({ ...selectedApp, document_status: "missing", missing_document_note: missingNote });
+        }
+      }
+    } catch (err: any) {
+      toast.error(resolveError(err));
+    } finally {
+      setDocumentActioning(null);
     }
   };
 
@@ -251,16 +318,143 @@ export default function AdminApplications() {
       </div>
 
       {selectedApp && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedApp(null)}>
-          <div className="rounded-3xl border border-[#3a2a0f] bg-[#050302] p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setSelectedApp(null); setShowMissingModal(false); }}>
+          <div className="rounded-3xl border border-[#3a2a0f] bg-[#050302] p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-cinzel text-xl text-[#f5d47d] mb-4">Başvuru Detayları</h3>
-            <pre className="text-xs text-zinc-400 whitespace-pre-wrap">{JSON.stringify(selectedApp, null, 2)}</pre>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-zinc-400">Ad Soyad:</span>
+                  <p className="text-white">{activeTab === "drivers" ? selectedApp.full_name : selectedApp.contact_full_name}</p>
+                </div>
+                <div>
+                  <span className="text-zinc-400">E-posta:</span>
+                  <p className="text-white">{activeTab === "drivers" ? selectedApp.email : selectedApp.contact_email}</p>
+                </div>
+                <div>
+                  <span className="text-zinc-400">Belge Durumu:</span>
+                  <p className={clsx(
+                    "font-semibold",
+                    selectedApp.document_status === "approved" ? "text-green-400" :
+                    selectedApp.document_status === "rejected" ? "text-red-400" :
+                    selectedApp.document_status === "missing" ? "text-yellow-400" : "text-zinc-400"
+                  )}>
+                    {selectedApp.document_status === "approved" ? "Onaylandı" :
+                     selectedApp.document_status === "rejected" ? "Reddedildi" :
+                     selectedApp.document_status === "missing" ? "Eksik" : "Beklemede"}
+                  </p>
+                </div>
+                {selectedApp.missing_document_note && (
+                  <div className="col-span-2">
+                    <span className="text-zinc-400">Eksik Belge Notu:</span>
+                    <p className="text-yellow-400">{selectedApp.missing_document_note}</p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-[#f5c76a] font-semibold">Belgeler</h4>
+                {activeTab === "drivers" ? (
+                  <>
+                    {selectedApp.driver_license_image_url && (
+                      <div>
+                        <p className="text-sm text-zinc-400 mb-1">Ehliyet Fotoğrafı</p>
+                        <a href={selectedApp.driver_license_image_url.startsWith("http") ? selectedApp.driver_license_image_url : `${process.env.NEXT_PUBLIC_API_URL || "https://zuber-backend-production-071e.up.railway.app"}${selectedApp.driver_license_image_url}`} target="_blank" rel="noopener noreferrer" className="block">
+                          <img src={selectedApp.driver_license_image_url.startsWith("http") ? selectedApp.driver_license_image_url : `${process.env.NEXT_PUBLIC_API_URL || "https://zuber-backend-production-071e.up.railway.app"}${selectedApp.driver_license_image_url}`} alt="Ehliyet" className="max-w-full h-auto rounded border border-yellow-500/30" />
+                        </a>
+                      </div>
+                    )}
+                    {selectedApp.vehicle_registration_image_url && (
+                      <div>
+                        <p className="text-sm text-zinc-400 mb-1">Ruhsat Fotoğrafı</p>
+                        <a href={selectedApp.vehicle_registration_image_url.startsWith("http") ? selectedApp.vehicle_registration_image_url : `${process.env.NEXT_PUBLIC_API_URL || "https://zuber-backend-production-071e.up.railway.app"}${selectedApp.vehicle_registration_image_url}`} target="_blank" rel="noopener noreferrer" className="block">
+                          <img src={selectedApp.vehicle_registration_image_url.startsWith("http") ? selectedApp.vehicle_registration_image_url : `${process.env.NEXT_PUBLIC_API_URL || "https://zuber-backend-production-071e.up.railway.app"}${selectedApp.vehicle_registration_image_url}`} alt="Ruhsat" className="max-w-full h-auto rounded border border-yellow-500/30" />
+                        </a>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  selectedApp.company_documents_image_url && (
+                    <div>
+                      <p className="text-sm text-zinc-400 mb-1">Firma Belgesi</p>
+                      <a href={selectedApp.company_documents_image_url.startsWith("http") ? selectedApp.company_documents_image_url : `${process.env.NEXT_PUBLIC_API_URL || "https://zuber-backend-production-071e.up.railway.app"}${selectedApp.company_documents_image_url}`} target="_blank" rel="noopener noreferrer" className="block">
+                        <img src={selectedApp.company_documents_image_url.startsWith("http") ? selectedApp.company_documents_image_url : `${process.env.NEXT_PUBLIC_API_URL || "https://zuber-backend-production-071e.up.railway.app"}${selectedApp.company_documents_image_url}`} alt="Firma Belgesi" className="max-w-full h-auto rounded border border-yellow-500/30" />
+                      </a>
+                    </div>
+                  )
+                )}
+              </div>
+              {selectedApp.document_status === "pending" && (
+                <div className="flex gap-2 pt-4 border-t border-yellow-500/20">
+                  <button
+                    onClick={() => handleApproveDocuments(activeTab === "drivers" ? "driver" : "partner", selectedApp.id)}
+                    disabled={documentActioning === `approve-doc-${activeTab === "drivers" ? "driver" : "partner"}-${selectedApp.id}`}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-green-600/20 border border-green-500/50 text-green-400 py-2 text-sm font-semibold hover:bg-green-600/30 disabled:opacity-50"
+                  >
+                    {documentActioning === `approve-doc-${activeTab === "drivers" ? "driver" : "partner"}-${selectedApp.id}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4" />
+                    )}
+                    Belgeleri Onayla
+                  </button>
+                  <button
+                    onClick={() => handleRejectDocuments(activeTab === "drivers" ? "driver" : "partner", selectedApp.id)}
+                    disabled={documentActioning === `reject-doc-${activeTab === "drivers" ? "driver" : "partner"}-${selectedApp.id}`}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600/20 border border-red-500/50 text-red-400 py-2 text-sm font-semibold hover:bg-red-600/30 disabled:opacity-50"
+                  >
+                    {documentActioning === `reject-doc-${activeTab === "drivers" ? "driver" : "partner"}-${selectedApp.id}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    Belgeleri Reddet
+                  </button>
+                  <button
+                    onClick={() => setShowMissingModal(true)}
+                    disabled={documentActioning?.startsWith("missing-doc")}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-yellow-600/20 border border-yellow-500/50 text-yellow-400 py-2 text-sm font-semibold hover:bg-yellow-600/30 disabled:opacity-50"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Eksik Belge İste
+                  </button>
+                </div>
+              )}
+            </div>
             <button
-              onClick={() => setSelectedApp(null)}
+              onClick={() => { setSelectedApp(null); setShowMissingModal(false); }}
               className="mt-4 w-full rounded-xl bg-[#f5c76a] text-black py-2 font-semibold hover:bg-[#fbd483]"
             >
               Kapat
             </button>
+          </div>
+        </div>
+      )}
+
+      {showMissingModal && selectedApp && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowMissingModal(false)}>
+          <div className="rounded-3xl border border-[#3a2a0f] bg-[#050302] p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-cinzel text-xl text-[#f5d47d] mb-4">Eksik Belge Notu</h3>
+            <textarea
+              value={missingNote}
+              onChange={(e) => setMissingNote(e.target.value)}
+              placeholder="Eksik belge hakkında not yazın..."
+              className="w-full rounded-lg bg-black/70 border border-yellow-500/30 px-3 py-2 text-white placeholder:text-zinc-500 mb-4 min-h-[100px]"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleRequestMissingDocuments(activeTab === "drivers" ? "driver" : "partner", selectedApp.id)}
+                disabled={!missingNote.trim() || documentActioning?.startsWith("missing-doc")}
+                className="flex-1 rounded-xl bg-yellow-500 text-black py-2 font-semibold hover:bg-yellow-400 disabled:opacity-50"
+              >
+                {documentActioning?.startsWith("missing-doc") ? "Gönderiliyor..." : "Gönder"}
+              </button>
+              <button
+                onClick={() => { setShowMissingModal(false); setMissingNote(""); }}
+                className="flex-1 rounded-xl bg-zinc-700 text-white py-2 font-semibold hover:bg-zinc-600"
+              >
+                İptal
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -15,6 +15,7 @@ export type PartnerApplyInput = {
   fleet_type: string;
   kvkk_consent: boolean;
   commercial_contract_approved: boolean;
+  company_documents_image_url: string;
 };
 
 export type DriverApplyInput = {
@@ -34,6 +35,8 @@ export type DriverApplyInput = {
   vehicle_year: number;
   plate_number: string;
   fuel_type: string;
+  driver_license_image_url: string;
+  vehicle_registration_image_url: string;
 };
 
 export function useApplyPartner() {

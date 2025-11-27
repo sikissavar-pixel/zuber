@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useApplyPartner } from "@/hooks/useApplications";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import api, { setAuthToken } from "@/lib/api";
 
 function validateTC(tc: string): boolean {
   if (!tc || tc.length !== 11 || !/^\d+$/.test(tc) || tc[0] === '0') return false;
@@ -48,6 +49,9 @@ export default function PartnerApplyPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confetti, setConfetti] = useState(false);
+  const [companyDocumentsFile, setCompanyDocumentsFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [companyDocumentsUrl, setCompanyDocumentsUrl] = useState<string>("");
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const name = e.target.name;
@@ -105,8 +109,68 @@ export default function PartnerApplyPage() {
       newErrors.commercial_contract_approved = "Ticari sözleşme onayı zorunludur";
     }
     
+    if (!companyDocumentsUrl) {
+      newErrors.company_documents_image_url = "Firma belgesi gereklidir";
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const validateFile = (file: File): string | null => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+    if (!allowedTypes.includes(file.type)) {
+      return "Dosya formatı geçersiz. JPG, PNG veya PDF yükleyiniz.";
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return "Dosya boyutu 5MB'dan büyük olamaz.";
+    }
+    return null;
+  };
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      setAuthToken(token);
+    }
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const response = await api.post("/api/uploads/document", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    
+    if (response.data.success && response.data.url) {
+      return response.data.url;
+    }
+    throw new Error("Upload failed");
+  };
+
+  const handleCompanyDocumentsChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const error = validateFile(file);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    setCompanyDocumentsFile(file);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      setCompanyDocumentsUrl(url);
+      toast.success("Firma belgesi yüklendi");
+    } catch (err: any) {
+      toast.error("Yükleme başarısız: " + (err?.response?.data?.detail || err?.message));
+      setCompanyDocumentsFile(null);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -131,6 +195,7 @@ export default function PartnerApplyPage() {
         fleet_type: form.fleet_type,
         kvkk_consent: form.kvkk_consent,
         commercial_contract_approved: form.commercial_contract_approved,
+        company_documents_image_url: companyDocumentsUrl,
       });
     } catch (err: any) {
       const errorMsg = err?.response?.data?.detail || err?.response?.data?.error || err?.message || "Gönderim başarısız oldu";
@@ -227,6 +292,12 @@ export default function PartnerApplyPage() {
                   <option value="Mixed">Karışık</option>
                 </select>
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm text-yellow-200 mb-1">Firma Belgesi Yükle *</label>
+                <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" onChange={handleCompanyDocumentsChange} disabled={uploading} className="w-full rounded p-3 bg-[#0f0f0f] border border-yellow-500/30 text-yellow-300" required />
+                {companyDocumentsUrl && <p className="text-green-400 text-xs mt-1">✓ Yüklendi</p>}
+                {errors.company_documents_image_url && <p className="text-red-400 text-xs mt-1">{errors.company_documents_image_url}</p>}
+              </div>
             </div>
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm text-yellow-200">
@@ -242,8 +313,8 @@ export default function PartnerApplyPage() {
             </div>
             {errors.submit && <p className="text-red-400">{errors.submit}</p>}
             <div className="flex justify-end">
-              <button type="submit" className="px-6 py-3 rounded font-semibold bg-yellow-500 hover:bg-yellow-400 text-black border border-yellow-600/40 transition" disabled={isPending || !form.kvkk_consent || !form.commercial_contract_approved}>
-                {isPending ? "Gönderiliyor..." : "Başvuruyu Gönder"}
+              <button type="submit" className="px-6 py-3 rounded font-semibold bg-yellow-500 hover:bg-yellow-400 text-black border border-yellow-600/40 transition" disabled={isPending || uploading || !form.kvkk_consent || !form.commercial_contract_approved || !companyDocumentsUrl}>
+                {isPending ? "Gönderiliyor..." : uploading ? "Yükleniyor..." : "Başvuruyu Gönder"}
               </button>
             </div>
           </form>
