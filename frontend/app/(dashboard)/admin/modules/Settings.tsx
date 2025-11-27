@@ -113,7 +113,7 @@ export default function AdminSettings() {
                           type={setting.type}
                           value={inputValue}
                           onChange={(e) => setSettings((prev) => ({ ...prev, [setting.key]: e.target.value }))}
-                          placeholder={setting.placeholder}
+                          placeholder={"placeholder" in setting ? setting.placeholder : ""}
                           className="w-full rounded-xl border border-[#3a2a0f] bg-transparent px-4 py-2 text-sm text-white placeholder:text-[#8b7442] focus:border-[#f5c76a] focus:outline-none"
                         />
                       )}
