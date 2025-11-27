@@ -33,9 +33,22 @@ export function getSocket() {
     autoConnect: true,
     withCredentials: true,
     reconnection: true,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 5000,
     secure: target.startsWith("https"),
   });
+
+  if (typeof window !== "undefined") {
+    socket.io.on("reconnect_attempt", (attempt) => {
+      if (attempt % 3 === 0) {
+        socket.io.opts.transports = ["polling", "websocket"];
+      } else {
+        socket.io.opts.transports = ["websocket", "polling"];
+      }
+    });
+  }
+
   return socket;
 }
 

@@ -27,7 +27,7 @@ import { useMyDriverLocation } from "@/hooks/useDriverLocation";
 import { useRouteEstimate } from "@/hooks/useRouteEstimate";
 import dynamic from "next/dynamic";
 import { RouteInsightPanel } from "@/components/driver/maps";
-import type { DriverMarker } from "@/components/maps/ZuberMap";
+import type { DriverMarker, CustomerMarker } from "@/components/maps/ZuberMap";
 
 const DynamicZuberMap = dynamic(
   () => import("@/components/maps").then((mod) => mod.ZuberMap),
@@ -149,21 +149,36 @@ export default function DriverDashboard() {
     );
   }, [driverLocation, fallbackLocation]);
 
+  const normalizedDriverLocation = useMemo(() => {
+    if (driverLocation) return driverLocation;
+    if (fallbackLocation) {
+      return {
+        driver_id: user?.id || 0,
+        latitude: fallbackLocation.latitude,
+        longitude: fallbackLocation.longitude,
+        heading: null,
+        speed: null,
+        accuracy: null,
+        updated_at: new Date().toISOString(),
+      };
+    }
+    return null;
+  }, [driverLocation, fallbackLocation, user?.id]);
+
   const driverMarkers = useMemo<DriverMarker[]>(
     () => {
-      const source = driverLocation || fallbackLocation;
-      if (!source) return [];
+      if (!normalizedDriverLocation) return [];
       return [
         {
-          id: driverLocation?.driver_id || user?.id || "driver",
-          lat: source.latitude,
-          lng: source.longitude,
-          heading: driverLocation?.heading ?? undefined,
+          id: normalizedDriverLocation.driver_id || user?.id || "driver",
+          lat: normalizedDriverLocation.latitude,
+          lng: normalizedDriverLocation.longitude,
+          heading: normalizedDriverLocation.heading ?? undefined,
           status: driverLocation ? "Sürücü konumu" : "Cihaz konumu",
         },
       ];
     },
-    [driverLocation, fallbackLocation, user?.id]
+    [normalizedDriverLocation, driverLocation, user?.id]
   );
 
   useEffect(() => {
@@ -176,27 +191,42 @@ export default function DriverDashboard() {
     const socket = getSocket();
     const onCreated = (payload: any) => {
       if (!payload || payload.driver_id) return;
-      if (payload.status !== "pending" && payload.status !== "open_bid") return;
+      const status = payload.status || "pending";
+      if (!["pending", "open_bid"].includes(status)) return;
       setLiveFeed((prev) => {
         if (prev.some((item) => item.id === payload.id)) return prev;
         const next: LiveFeedReservation = {
           ...payload,
         };
-        return [next, ...prev].slice(0, 12);
+        return [next, ...prev].slice(0, 20);
       });
     };
-    const onAssigned = (payload: any) => {
+    const onCancelled = (payload: any) => {
       if (!payload?.id) return;
       setLiveFeed((prev) => prev.filter((item) => item.id !== Number(payload.id)));
     };
+    const onAccepted = (payload: any) => {
+      if (!payload?.id) return;
+      setLiveFeed((prev) => prev.filter((item) => item.id !== Number(payload.id)));
+      queryClient.invalidateQueries({ queryKey: ["driver", "dashboard", "reservations"] }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ["driver", "dashboard", "feed"] }).catch(() => {});
+    };
 
     socket.on("reservation_created", onCreated);
-    socket.on("reservation_assigned", onAssigned);
+    socket.on("reservation:new", onCreated);
+    socket.on("reservation_assigned", onAccepted);
+    socket.on("reservation:accepted", onAccepted);
+    socket.on("reservation_cancelled", onCancelled);
+    socket.on("reservation:cancel", onCancelled);
     return () => {
       socket.off("reservation_created", onCreated);
-      socket.off("reservation_assigned", onAssigned);
+      socket.off("reservation:new", onCreated);
+      socket.off("reservation_assigned", onAccepted);
+      socket.off("reservation:accepted", onAccepted);
+      socket.off("reservation_cancelled", onCancelled);
+      socket.off("reservation:cancel", onCancelled);
     };
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -215,8 +245,10 @@ export default function DriverDashboard() {
       queryClient.setQueryData(["driver", "location", "me"], normalized);
     };
     socket.on("driver_location_update", handleLocation);
+    socket.on("driver:location:update", handleLocation);
     return () => {
       socket.off("driver_location_update", handleLocation);
+      socket.off("driver:location:update", handleLocation);
     };
   }, [queryClient, user?.id]);
 
@@ -308,6 +340,29 @@ export default function DriverDashboard() {
             : "warning",
       }));
   }, [reservationsData]);
+
+  const mapCustomers = useMemo<CustomerMarker[]>(() => {
+    const pool: Record<number | string, { id: number | string; pickup: string; status?: string; color?: string }> = {};
+    liveFeed.forEach((reservation) => {
+      if (!reservation.pickup_location) return;
+      pool[reservation.id] = {
+        id: reservation.id,
+        pickup: reservation.pickup_location,
+        status: reservation.status,
+        color: "#facc15",
+      };
+    });
+    upcomingReservations.forEach((reservation) => {
+      if (!reservation.pickup_location) return;
+      pool[reservation.id] = {
+        id: reservation.id,
+        pickup: reservation.pickup_location,
+        status: reservation.status,
+        color: reservation.status === "in_progress" ? "#ffb74d" : "#ffd54f",
+      };
+    });
+    return Object.values(pool) as CustomerMarker[];
+  }, [liveFeed, upcomingReservations]);
 
   const quickActions = useMemo(
     () => [
@@ -491,6 +546,7 @@ export default function DriverDashboard() {
                       : undefined
                   }
                   drivers={driverMarkers}
+                  customers={mapCustomers}
                   onRouteMetrics={setMapMetrics}
                   height={360}
                 />
@@ -502,7 +558,7 @@ export default function DriverDashboard() {
               </div>
               <RouteInsightPanel
                 route={routeEstimate}
-                driverLocation={driverLocation || null}
+                driverLocation={normalizedDriverLocation}
                 isLoading={isRouteLoading}
                 liveMetrics={mapMetrics || undefined}
               />

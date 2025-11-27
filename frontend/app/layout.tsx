@@ -42,6 +42,8 @@ export default function RootLayout({
             id="google-maps-api"
             strategy="beforeInteractive"
             src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsKey}&libraries=places`}
+            async
+            defer
           />
         ) : (
           <Script

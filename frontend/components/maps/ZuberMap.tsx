@@ -15,6 +15,13 @@ export type DriverMarker = {
   status?: string;
 };
 
+export type CustomerMarker = {
+  id: string | number;
+  pickup: string;
+  status?: string;
+  color?: string;
+};
+
 export type RouteConfig = {
   origin?: LatLngLiteral | string;
   destination?: LatLngLiteral | string;
@@ -24,6 +31,7 @@ export type RouteConfig = {
 
 type ZuberMapProps = {
   drivers?: DriverMarker[];
+  customers?: CustomerMarker[];
   route?: RouteConfig;
   height?: number | string;
   className?: string;
@@ -32,6 +40,7 @@ type ZuberMapProps = {
 
 export function ZuberMap({
   drivers = [],
+  customers = [],
   route,
   height = 320,
   className,
@@ -40,6 +49,8 @@ export function ZuberMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map>();
   const driverMarkersRef = useRef<Record<string | number, google.maps.Marker>>({});
+  const customerMarkersRef = useRef<Record<string | number, google.maps.Marker>>({});
+  const geocodeCacheRef = useRef<Record<string, LatLngLiteral>>({});
   const userMarkerRef = useRef<google.maps.Marker>();
   const routePolylineRef = useRef<google.maps.Polyline>();
   const routeRendererRef = useRef<google.maps.DirectionsRenderer>();
@@ -100,6 +111,8 @@ export function ZuberMap({
       cancelled = true;
       Object.values(driverMarkersRef.current).forEach((marker) => marker.setMap(null));
       driverMarkersRef.current = {};
+      Object.values(customerMarkersRef.current).forEach((marker) => marker.setMap(null));
+      customerMarkersRef.current = {};
       if (userMarkerRef.current) {
         userMarkerRef.current.setMap(null);
       }
@@ -180,14 +193,15 @@ export function ZuberMap({
               map: mapRef.current!,
               position: { lat: driver.lat, lng: driver.lng },
               icon: {
-                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                fillColor: "#fbbf24",
+                path: google.maps.SymbolPath.FORWARD_OPEN_ARROW,
+                fillColor: "#ffd54f",
                 fillOpacity: 1,
-                strokeColor: "#1f1300",
+                strokeColor: "#b8860b",
                 strokeWeight: 2,
-                scale: 4,
+                scale: 5,
                 rotation: driver.heading ?? undefined,
               },
+              animation: google.maps.Animation.DROP,
               title: driver.status || `Sürücü #${driver.id}`,
             });
           } else {
@@ -212,6 +226,70 @@ export function ZuberMap({
     const primary = drivers[0];
     mapRef.current.panTo({ lat: primary.lat, lng: primary.lng });
   }, [drivers, ready]);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) {
+      Object.values(customerMarkersRef.current).forEach((marker) => marker.setMap(null));
+      customerMarkersRef.current = {};
+      return;
+    }
+    if (!customers.length) {
+      Object.values(customerMarkersRef.current).forEach((marker) => marker.setMap(null));
+      customerMarkersRef.current = {};
+      return;
+    }
+    loadGoogleMaps()
+      .then((google) => {
+        const geocoder = new google.maps.Geocoder();
+        const nextIds = new Set(customers.map((customer) => customer.id));
+        Object.entries(customerMarkersRef.current).forEach(([id, marker]) => {
+          if (!nextIds.has(id)) {
+            marker.setMap(null);
+            delete customerMarkersRef.current[id];
+          }
+        });
+
+        customers.forEach((customer, index) => {
+          const cacheKey = customer.pickup.toLowerCase();
+          const createMarker = (position: LatLngLiteral) => {
+            if (!customerMarkersRef.current[customer.id]) {
+              customerMarkersRef.current[customer.id] = new google.maps.Marker({
+                map: mapRef.current!,
+                position,
+                icon: {
+                  path: google.maps.SymbolPath.CIRCLE,
+                  fillColor: customer.color || "#facc15",
+                  fillOpacity: 0.95,
+                  strokeColor: "#7c5b04",
+                  strokeWeight: 2,
+                  scale: 7,
+                },
+                animation: google.maps.Animation.DROP,
+                title: customer.status || `Rezervasyon #${customer.id}`,
+                zIndex: 50 - index,
+              });
+            } else {
+              customerMarkersRef.current[customer.id].setPosition(position);
+            }
+          };
+
+          if (geocodeCacheRef.current[cacheKey]) {
+            createMarker(geocodeCacheRef.current[cacheKey]);
+            return;
+          }
+          geocoder.geocode({ address: customer.pickup }, (results, status) => {
+            if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+              const location = results[0].geometry.location.toJSON();
+              geocodeCacheRef.current[cacheKey] = location;
+              createMarker(location);
+            }
+          });
+        });
+      })
+      .catch((err) => {
+        console.warn(err);
+      });
+  }, [customers, ready]);
 
   // Draw route between two points
   useEffect(() => {
