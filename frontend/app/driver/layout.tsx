@@ -1,194 +1,151 @@
 "use client";
 
-import React, { useEffect, useState, memo, useCallback } from "react";
+import React, { useEffect, useMemo, useState, memo } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Home, CalendarDays, MessageSquare, Wallet, QrCode, Star, Lock, LogOut, 
-  Signal, Menu, X, ChevronRight, Zap
+import type { LucideIcon } from "lucide-react";
+import {
+  Home,
+  CalendarDays,
+  MessageSquare,
+  Wallet,
+  QrCode,
+  Star,
+  Lock,
+  LogOut,
+  Signal,
+  Menu,
+  X,
+  ChevronRight,
+  Zap,
+  User,
 } from "lucide-react";
-import { FloatingChatWidget, VIPCallModal } from "@/components/driver/chat";
-import { FloatingActionBar } from "@/components/driver/mobile";
-import { getSocket } from "@/lib/socket";
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublicApply = pathname?.startsWith("/driver/apply");
   const content = <Inner>{children}</Inner>;
-  if (isPublicApply) {
-    return content;
-  }
-  return (
-    <ProtectedRoute allowedRoles={["driver"]}>
-      {content}
-    </ProtectedRoute>
-  );
+  if (isPublicApply) return content;
+  return <ProtectedRoute allowedRoles={["driver"]}>{content}</ProtectedRoute>;
 }
 
-const NavItem = memo(function NavItem({ 
-  item, 
-  active, 
-  onClick 
-}: { 
-  item: { href: string; label: string; icon: any }; 
+const NAV_LINKS: Array<{
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: string;
+  pulse?: boolean;
+}> = [
+  { href: "/driver/dashboard", label: "Dashboard", icon: Home },
+  { href: "/driver/reservations", label: "Rezervasyonlar", icon: CalendarDays },
+  { href: "/driver/earnings", label: "Cüzdanım", icon: Wallet },
+  { href: "/driver/chat", label: "Sohbetler", icon: MessageSquare, badge: "2", pulse: true },
+  { href: "/driver/profile", label: "Profilim", icon: User },
+  { href: "/driver/security", label: "Güvenlik", icon: Lock },
+  { href: "/driver/feedback", label: "Yorumlarım", icon: Star },
+  { href: "/driver/qr-verification", label: "QR Onay", icon: QrCode },
+];
+
+const NavItemRow = memo(function NavItemRow({
+  item,
+  active,
+  collapsed,
+  onClick,
+}: {
+  item: (typeof NAV_LINKS)[number];
   active: boolean;
+  collapsed: boolean;
   onClick?: () => void;
 }) {
   const Icon = item.icon;
-  
   return (
-    <Link href={item.href} onClick={onClick}>
+    <Link
+      href={item.href}
+      onClick={onClick}
+      aria-label={item.label}
+      aria-current={active ? "page" : undefined}
+      className="block outline-none focus-visible:ring-2 focus-visible:ring-[#ffcc33]/70 rounded-xl"
+    >
       <motion.div
-        whileHover={{ x: 4 }}
-        whileTap={{ scale: 0.98 }}
-        className={`
-          relative flex items-center gap-3 px-4 py-3 rounded-xl
-          transition-all duration-300 group
-          ${active 
-            ? "bg-gradient-to-r from-[#ffb400]/20 to-[#ffb400]/5 border-l-2 border-[#ffb400]" 
-            : "hover:bg-[#ffb400]/5 border-l-2 border-transparent"
-          }
-        `}
+        whileHover={{ x: collapsed ? 0 : 6 }}
+        whileTap={{ scale: 0.97 }}
+        className={`relative flex items-center ${collapsed ? "justify-center" : "gap-3"} px-3 py-3 rounded-xl transition-all duration-300 group ${
+          active
+            ? "bg-gradient-to-r from-[#ffcc33]/20 via-[#ffb400]/10 to-transparent border border-[#ffb400]/40 shadow-[0_0_20px_rgba(255,180,0,0.25)]"
+            : "border border-transparent hover:border-[#ffb400]/25 hover:bg-[#120a00]/60"
+        }`}
       >
-        {/* Glow effect for active */}
-        {active && (
+        {active && !collapsed && (
           <motion.div
-            layoutId="activeGlow"
-            className="absolute inset-0 rounded-xl bg-[#ffb400]/10 blur-xl -z-10"
-            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+            layoutId="driver-nav-glow"
+            className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#ffcc33]/30 to-transparent blur-2xl -z-10"
+            transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
           />
         )}
-
-        <div className={`
-          p-2 rounded-lg transition-all duration-300
-          ${active 
-            ? "bg-[#ffb400]/20 text-[#ffcc33] shadow-[0_0_15px_rgba(255,180,0,0.3)]" 
-            : "bg-[#111] text-[#888] group-hover:text-[#ffb400] group-hover:bg-[#ffb400]/10"
-          }
-        `}>
+        <div
+          className={`relative p-2 rounded-lg transition-all duration-300 ${
+            active
+              ? "bg-[#ffcc33]/30 text-[#050301] shadow-[0_0_18px_rgba(255,204,51,0.35)]"
+              : "bg-[#151515]/85 text-[#cfcfcf] group-hover:text-[#ffcc33] group-hover:bg-[#ffcc33]/10"
+          }`}
+        >
+          {item.pulse && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-400 animate-ping" aria-hidden="true" />
+          )}
           <Icon className="w-5 h-5" strokeWidth={1.5} />
         </div>
-
-        <span className={`
-          font-inter text-sm transition-colors duration-300
-          ${active ? "text-[#f5f5f5] font-medium" : "text-[#888] group-hover:text-[#f5f5f5]"}
-        `}>
+        <span
+          className={`font-inter text-sm tracking-wide transition-all duration-200 ${
+            collapsed ? "w-0 opacity-0" : "opacity-100 w-auto text-[#f7f1de]"
+          } ${active ? "font-semibold text-[#050301]" : "text-[#d5d5d5]"}`}
+          aria-hidden={collapsed}
+        >
           {item.label}
         </span>
-
-        {active && (
-          <ChevronRight className="w-4 h-4 text-[#ffb400] ml-auto" />
+        {!!item.badge && !collapsed && (
+          <span className="ml-auto text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border border-[#ffcc33]/40 text-[#ffcc33]">
+            {item.badge}
+          </span>
         )}
       </motion.div>
     </Link>
   );
 });
+NavItemRow.displayName = "NavItemRow";
 
 function Inner({ children }: { children: React.ReactNode }) {
   const { logout, user } = useAuth();
   const pathname = usePathname();
   const [time, setTime] = useState<string>("");
-  const [online, setOnline] = useState(true);
+  const [online] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
-  
-  // VIP Call Modal state
-  const [callModalOpen, setCallModalOpen] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<{
-    id: number;
-    guestName: string;
-    pickup: string;
-    dropoff: string;
-    time: string;
-    estimatedAmount?: string;
-    isVIP?: boolean;
-    rating?: number;
-  } | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    setTime(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }));
+    setTime(
+      new Date().toLocaleTimeString("tr-TR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
     const id = setInterval(() => {
-      setTime(new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }));
+      setTime(
+        new Date().toLocaleTimeString("tr-TR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
     }, 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Socket listener for incoming calls
-  useEffect(() => {
-    const socket = getSocket();
-    
-    const handleNewReservation = (payload: any) => {
-      if (payload && payload.status === "pending" && !payload.driver_id) {
-        // Show VIP call modal
-        setIncomingCall({
-          id: payload.id,
-          guestName: payload.guest_name || "VIP Misafir",
-          pickup: payload.pickup_location || "Bilinmiyor",
-          dropoff: payload.dropoff_location || "Bilinmiyor",
-          time: new Date(payload.pickup_time || Date.now()).toLocaleString("tr-TR"),
-          estimatedAmount: payload.total_amount ? `${payload.total_amount}₺` : undefined,
-          isVIP: true,
-          rating: 4.9,
-        });
-        setCallModalOpen(true);
-      }
-    };
-
-    const handleChatMessage = (payload: any) => {
-      if (!chatOpen && payload?.from !== "driver") {
-        setUnreadMessages((prev) => prev + 1);
-      }
-    };
-
-    socket.on("reservation_created", handleNewReservation);
-    socket.on("driver_chat_message", handleChatMessage);
-
-    return () => {
-      socket.off("reservation_created", handleNewReservation);
-      socket.off("driver_chat_message", handleChatMessage);
-    };
-  }, [chatOpen]);
-
-  const handleAcceptCall = useCallback((id: number) => {
-    const socket = getSocket();
-    if (user?.id) {
-      socket.emit("accept_reservation", { reservation_id: id, driver_id: user.id });
-    }
-    setCallModalOpen(false);
-    setIncomingCall(null);
-  }, [user?.id]);
-
-  const handleDeclineCall = useCallback((id: number) => {
-    setCallModalOpen(false);
-    setIncomingCall(null);
-  }, []);
-
-  const toggleOnline = useCallback(() => {
-    setOnline((prev) => !prev);
-  }, []);
-
-  const openChat = useCallback(() => {
-    setChatOpen(true);
-    setUnreadMessages(0);
-  }, []);
-
-  const nav = [
-    { href: "/driver/dashboard", label: "Dashboard", icon: Home },
-    { href: "/driver/reservations", label: "Aktif Rezervasyonlar", icon: CalendarDays },
-    { href: "/driver/chat", label: "Sohbetler", icon: MessageSquare },
-    { href: "/driver/earnings", label: "Gelirlerim", icon: Wallet },
-    { href: "/driver/qr-verification", label: "QR Onay", icon: QrCode },
-    { href: "/driver/feedback", label: "Yorumlarım", icon: Star },
-    { href: "/driver/security", label: "Güvenlik", icon: Lock },
-  ];
+  const navItems = useMemo(() => NAV_LINKS, []);
 
   return (
-    <div className="min-h-screen bg-[#000] text-white font-inter flex">
-      {/* Mobile sidebar backdrop */}
+    <div className="min-h-screen bg-[#010101] text-white font-inter flex">
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -196,158 +153,142 @@ function Inner({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/75 backdrop-blur-lg z-40 lg:hidden"
+            aria-hidden="true"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-72 flex flex-col
-        bg-gradient-to-b from-[#0a0a0a] via-[#080808] to-[#050505]
-        border-r border-[#ffb400]/10
-        transform transition-transform duration-300 ease-out
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-      `}>
-        {/* Sidebar glow */}
-        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-[#ffb400]/20 via-[#ffb400]/5 to-transparent" />
+      <motion.aside
+        initial={false}
+        animate={{ x: sidebarOpen ? 0 : -20 }}
+        className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 w-72 ${collapsed ? "lg:w-24" : "lg:w-72"} flex flex-col bg-[#050505]/95 backdrop-blur-2xl border-r border-[#ffcc33]/20 shadow-[18px_0_60px_rgba(0,0,0,0.55)] ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } transition-transform`}
+        role="navigation"
+        aria-label="Zuber sürücü menüsü"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#ffcc33/10,transparent_60%)] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-[#ffcc33]/40 via-transparent to-transparent" />
 
-        {/* Header */}
-        <div className="p-6 border-b border-[#ffb400]/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#ffb400] to-[#ff8c00]">
-                  <Zap className="w-4 h-4 text-black" fill="black" />
-                </div>
-                <span className="font-cinzel text-xl text-[#f5f5f5] tracking-wide">Zuber</span>
-                <span className="font-cinzel text-xl text-[#ffb400]">Driver</span>
+        <div className={`relative z-10 border-b border-[#ffcc33]/20 ${collapsed ? "p-4" : "p-6"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className={`flex items-center ${collapsed ? "justify-center w-full" : "gap-3"}`}>
+              <div className="p-1.5 rounded-lg bg-gradient-to-br from-[#ffcc33] to-[#ff8c00] shadow-[0_0_18px_rgba(255,204,51,0.4)]">
+                <Zap className="w-4 h-4 text-black" />
               </div>
-              <p className="text-xs text-[#666] mt-1 tracking-wider">ISTANBUL EDITION</p>
+              {!collapsed && (
+                <div>
+                  <p className="font-cinzel text-lg tracking-[0.4em] text-white uppercase">Zuber</p>
+                  <p className="font-cinzel text-lg text-[#ffcc33]">VIP Partner</p>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 rounded-lg hover:bg-[#ffb400]/10 text-[#888]"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCollapsed((prev) => !prev)}
+                className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg border border-[#ffcc33]/30 text-[#ffcc33] hover:bg-[#ffcc33]/10"
+                aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+              >
+                <ChevronRight className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+              </button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-2 rounded-lg hover:bg-[#ffcc33]/15 text-[#c7c7c7]"
+                aria-label="Menüyü kapat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
+          {!collapsed && (
+            <p className="text-[11px] text-[#b7964d] mt-4 tracking-[0.5em] uppercase">Driver Command</p>
+          )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {nav.map((item) => (
-            <NavItem
+        <nav
+          id="driver-sidebar-nav"
+          className={`${collapsed ? "p-3" : "p-5"} flex-1 space-y-3 overflow-y-auto relative z-10`}
+        >
+          {navItems.map((item) => (
+            <NavItemRow
               key={item.href}
               item={item}
-              active={pathname === item.href || (item.href !== "/driver/dashboard" && pathname?.startsWith(item.href))}
+              active={
+                pathname === item.href ||
+                (item.href !== "/driver/dashboard" && pathname?.startsWith(item.href))
+              }
+              collapsed={collapsed}
               onClick={() => setSidebarOpen(false)}
             />
           ))}
         </nav>
 
-        {/* User section */}
-        <div className="p-4 border-t border-[#ffb400]/10">
-          {/* User info */}
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#0d0d0d] border border-[#ffb400]/10 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ffb400]/30 to-[#ffb400]/10 flex items-center justify-center border border-[#ffb400]/20">
-              <span className="font-cinzel text-[#ffcc33] text-sm">
-                {user?.full_name?.charAt(0) || "S"}
-              </span>
+        <div className={`relative z-10 border-t border-[#ffcc33]/20 ${collapsed ? "p-3" : "p-4"}`}>
+          <div
+            className={`flex items-center gap-3 rounded-xl border border-[#ffcc33]/25 bg-[#090909]/80 transition-all ${
+              collapsed ? "justify-center p-2" : "px-4 py-3 mb-3 shadow-[0_0_25px_rgba(255,204,51,0.12)]"
+            }`}
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ffcc33]/40 to-[#ffb400]/15 flex items-center justify-center border border-[#ffcc33]/40">
+              <span className="font-cinzel text-[#050301] text-sm">{user?.full_name?.charAt(0) || "S"}</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-[#f5f5f5] font-medium truncate">
-                {user?.full_name || "Sürücü"}
-              </p>
-              <p className="text-xs text-[#666]">Premium Driver</p>
-            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white font-medium truncate">{user?.full_name || "Sürücü"}</p>
+                <p className="text-xs text-[#b4974d] tracking-[0.4em] uppercase">VIP Driver</p>
+              </div>
+            )}
           </div>
-
-          {/* Logout button */}
           <motion.button
             onClick={logout}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="
-              w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl
-              bg-gradient-to-r from-rose-500/10 to-rose-500/5
-              border border-rose-500/20
-              text-rose-400 hover:text-rose-300
-              hover:border-rose-500/30 hover:shadow-[0_0_20px_rgba(244,63,94,0.1)]
-              transition-all duration-300
-            "
+            className={`w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500/20 to-rose-500/10 border border-rose-500/40 text-rose-100 hover:text-white hover:border-rose-500/60 hover:shadow-[0_0_25px_rgba(244,63,94,0.3)] transition-all duration-300 ${
+              collapsed ? "py-2" : "py-3"
+            }`}
+            aria-label="Çıkış"
           >
             <LogOut className="w-4 h-4" />
-            <span className="text-sm font-medium">Çıkış Yap</span>
+            {!collapsed && <span className="text-sm font-semibold tracking-wide">Çıkış Yap</span>}
           </motion.button>
         </div>
-      </aside>
+      </motion.aside>
 
-      {/* Main content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 px-4 lg:px-6 py-3 bg-[#000]/80 backdrop-blur-xl border-b border-[#ffb400]/10">
+        <header className="sticky top-0 z-30 px-4 lg:px-6 py-3 bg-[#020202]/90 backdrop-blur-xl border-b border-[#ffcc33]/15">
           <div className="flex items-center justify-between">
-            {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-[#ffb400]/10 text-[#888]"
+              className="lg:hidden p-2 rounded-lg hover:bg-[#ffcc33]/15 text-[#cfcfcf]"
+              aria-controls="driver-sidebar-nav"
+              aria-expanded={sidebarOpen}
+              aria-label="Menüyü aç"
             >
               <Menu className="w-5 h-5" />
             </button>
-
-            {/* Status */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0d0d] border border-[#ffb400]/10">
-                <motion.div
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0c0c0c]/90 border border-[#ffcc33]/20">
+                <Signal className="w-4 h-4 text-[#ffcc33]" />
+                <motion.span
                   className={`w-2 h-2 rounded-full ${online ? "bg-emerald-500" : "bg-rose-500"}`}
-                  animate={online ? { scale: [1, 1.2, 1], opacity: [1, 0.7, 1] } : {}}
+                  animate={online ? { scale: [1, 1.2, 1], opacity: [1, 0.6, 1] } : {}}
                   transition={{ duration: 2, repeat: Infinity }}
                 />
-                <span className="text-xs text-[#888]">{online ? "Çevrimiçi" : "Çevrimdışı"}</span>
+                <span className="text-xs text-[#bbb]">{online ? "Çevrimiçi" : "Çevrimdışı"}</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0c0c0c] border border-[#ffcc33]/20">
+                <span className="text-xs text-[#ffcc33] font-mono">{time}</span>
               </div>
             </div>
-
-            {/* Time */}
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0d0d0d] border border-[#ffb400]/10">
-                <span className="text-xs text-[#ffb400] font-mono">{time}</span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#ffb400]/20 to-[#ffb400]/5 border border-[#ffb400]/20 flex items-center justify-center lg:hidden">
-                <span className="text-xs text-[#ffcc33]">{user?.full_name?.charAt(0) || "S"}</span>
-              </div>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#ffcc33]/20 to-[#ffb400]/10 border border-[#ffcc33]/30 flex items-center justify-center lg:hidden">
+              <span className="text-xs text-[#ffcc33]">{user?.full_name?.charAt(0) || "S"}</span>
             </div>
           </div>
         </header>
-
-        {/* Progress bar decoration */}
-        <div className="h-px bg-gradient-to-r from-transparent via-[#ffb400]/30 to-transparent" />
-
-        {/* Page content */}
-        <div className="flex-1 pb-20 lg:pb-0">
-          {children}
-        </div>
+        <div className="h-px bg-gradient-to-r from-transparent via-[#ffcc33]/25 to-transparent" />
+        <div className="flex-1 pb-6 lg:pb-0">{children}</div>
       </main>
-
-      {/* Floating Chat Widget */}
-      <FloatingChatWidget partnerName="Partner" />
-
-      {/* VIP Call Modal */}
-      <VIPCallModal
-        isOpen={callModalOpen}
-        callData={incomingCall}
-        onAccept={handleAcceptCall}
-        onDecline={handleDeclineCall}
-      />
-
-      {/* Mobile Floating Action Bar */}
-      <FloatingActionBar
-        isOnline={online}
-        onToggleOnline={toggleOnline}
-        onOpenChat={openChat}
-        unreadMessages={unreadMessages}
-      />
     </div>
   );
 }
