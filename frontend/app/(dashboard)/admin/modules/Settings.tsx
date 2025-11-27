@@ -100,44 +100,47 @@ export default function AdminSettings() {
               <h3 className="font-cinzel text-xl text-[#f5d47d]">{group.title}</h3>
             </div>
             <div className="space-y-4">
-              {group.settings.map((setting) => (
-                <div key={setting.key} className="flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-2xl border border-[#3a2a0f] bg-black/40">
-                  <div className="flex-1">
-                    <label className="text-sm font-semibold text-white mb-1 block">{setting.label}</label>
-                    {setting.type === "toggle" ? (
-                      <p className="text-xs text-zinc-400">{setting.value ? "Aktif" : "Pasif"}</p>
-                    ) : (
-                      <input
-                        type={setting.type}
-                        value={setting.value}
-                        onChange={(e) => setSettings((prev) => ({ ...prev, [setting.key]: e.target.value }))}
-                        placeholder={setting.placeholder}
-                        className="w-full rounded-xl border border-[#3a2a0f] bg-transparent px-4 py-2 text-sm text-white placeholder:text-[#8b7442] focus:border-[#f5c76a] focus:outline-none"
-                      />
-                    )}
+              {group.settings.map((setting) => {
+                const inputValue = typeof setting.value === "boolean" ? String(setting.value) : setting.value;
+                return (
+                  <div key={setting.key} className="flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-2xl border border-[#3a2a0f] bg-black/40">
+                    <div className="flex-1">
+                      <label className="text-sm font-semibold text-white mb-1 block">{setting.label}</label>
+                      {setting.type === "toggle" ? (
+                        <p className="text-xs text-zinc-400">{setting.value ? "Aktif" : "Pasif"}</p>
+                      ) : (
+                        <input
+                          type={setting.type}
+                          value={inputValue}
+                          onChange={(e) => setSettings((prev) => ({ ...prev, [setting.key]: e.target.value }))}
+                          placeholder={setting.placeholder}
+                          className="w-full rounded-xl border border-[#3a2a0f] bg-transparent px-4 py-2 text-sm text-white placeholder:text-[#8b7442] focus:border-[#f5c76a] focus:outline-none"
+                        />
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (setting.type === "toggle") {
+                          handleSave(setting.key, !setting.value);
+                        } else {
+                          handleSave(setting.key, setting.value);
+                        }
+                      }}
+                      disabled={loading === setting.key}
+                      className="rounded-xl border border-[#f5c76a]/60 bg-gradient-to-r from-[#fbd483] to-[#f3b94f] px-6 py-2 text-sm font-semibold text-black hover:from-[#f5c76a] hover:to-[#f3b94f] disabled:opacity-50 flex items-center justify-center gap-2 min-w-[120px]"
+                    >
+                      {loading === setting.key ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Kaydediliyor
+                        </>
+                      ) : (
+                        "Kaydet"
+                      )}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      if (setting.type === "toggle") {
-                        handleSave(setting.key, !setting.value);
-                      } else {
-                        handleSave(setting.key, setting.value);
-                      }
-                    }}
-                    disabled={loading === setting.key}
-                    className="rounded-xl border border-[#f5c76a]/60 bg-gradient-to-r from-[#fbd483] to-[#f3b94f] px-6 py-2 text-sm font-semibold text-black hover:from-[#f5c76a] hover:to-[#f3b94f] disabled:opacity-50 flex items-center justify-center gap-2 min-w-[120px]"
-                  >
-                    {loading === setting.key ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Kaydediliyor
-                      </>
-                    ) : (
-                      "Kaydet"
-                    )}
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
@@ -145,4 +148,3 @@ export default function AdminSettings() {
     </div>
   );
 }
-
